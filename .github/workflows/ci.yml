@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Require real license symlinks on Windows as well as Unix checkouts.
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: core.symlinks
+  GIT_CONFIG_VALUE_0: 'true'
+
+jobs:
+  msrv:
+    name: Rust 1.95 docs/stub compilation
+    runs-on: ubuntu-24.04
+    env:
+      DOCS_RS: '1'
+      NVIDIA_SDK_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets --all-features
+
+  docs-stubs:
+    name: Docs/stub simulation (${{ matrix.os }}, ${{ matrix.features.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+        features:
+          - name: default
+            args: ''
+          - name: no-default
+            args: --no-default-features
+          - name: native-no-graph
+            args: --no-default-features --features nvidia-nrd/native,nvidia-omm/native
+    # DOCS_RS forces stubs even with native features enabled. These are NOT native tests.
+    # Only SDK acquisition is offline; Cargo may download registry dependencies.
+    env:
+      DOCS_RS: '1'
+      NVIDIA_SDK_OFFLINE: '1'
+      NVIDIA_SDK_CACHE: ${{ runner.temp }}/unused-nvidia-sdk-cache
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --workspace ${{ matrix.features.args }} -- -D warnings
+      - name: Test resolver and simulated stubs (not native backends)
+        run: cargo test --all-targets --workspace ${{ matrix.features.args }}
+      - run: cargo doc --workspace --no-deps ${{ matrix.features.args }}
+
+  native:
+    name: Native build and CPU tests (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: macos-15
+            target: aarch64-apple-darwin
+    # No DOCS_RS or SDK offline guard: acquire pinned SDKs and compile real bridges.
+    # Hosted C++ toolchains suffice for these packages (Xcode C++20 for macOS OMM).
+    # Do not build the native workspace: NRD needs CMake 3.30+ and Vulkan SDK DXC.
+    # NRD native validation and all GPU rendering remain manual gates in RELEASE.md.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Require native host (OMM cross-compilation would select a stub)
+        shell: bash
+        run: |
+          test -z "${DOCS_RS+x}"
+          rustc -vV | grep -Fx 'host: ${{ matrix.target }}'
+      - name: OMM native CPU bake and layout tests
+        run: cargo test -p nvidia-omm --lib --no-default-features --features native
+      - name: DLSS native default-feature build (release runtime and graph adapter)
+        if: runner.os == 'Linux'
+        run: cargo check -p nvidia-dlss --all-targets
+      - name: DLSS native layout tests (development runtime, no graph adapter)
+        if: runner.os == 'Linux'
+        run: cargo test -p nvidia-dlss --lib --no-default-features
+      - name: Streamline native default-feature build (graph adapter)
+        if: runner.os == 'Windows'
+        run: cargo check -p nvidia-streamline --all-targets
+      - name: Streamline native-build layout and API tests (no graph adapter, no GPU)
+        if: runner.os == 'Windows'
+        run: cargo test -p nvidia-streamline --lib --no-default-features

@@ -1,0 +1,285 @@
+schema = 1
+
+[sdks.sharc]
+version = "1.8.3"
+environment = "SHARC_SDK"
+license = "NVIDIA RTX SDKs License"
+license_url = "https://github.com/NVIDIA-RTX/SHARC/blob/4e21b585c33c83d723ca9a1e11bbb1090d145793/License.md"
+
+[[sdks.sharc.artifacts]]
+id = "shader-source"
+# Shader-only SDK: no host or target native binaries.
+targets = ["*"]
+url = "https://codeload.github.com/NVIDIA-RTX/SHARC/zip/4e21b585c33c83d723ca9a1e11bbb1090d145793"
+sha256 = "2fce446623df71f6cb6217da300422a0b4cfb7d7dca92d8111708dc030d60b4c"
+required = [
+    "include/HashGridCommon.h",
+    "include/HashGridTypes.h",
+    "include/SharcCommon.h",
+    "include/SharcGlslHelpers.h",
+    "include/SharcTypes.h",
+    "License.md",
+]
+
+[sdks.dlss]
+version = "310.4.0"
+environment = "DLSS_SDK"
+license = "NVIDIA RTX SDKs License"
+license_url = "https://github.com/NVIDIA/DLSS/blob/v310.4.0/LICENSE.txt"
+
+[[sdks.dlss.artifacts]]
+id = "linux-x86_64"
+targets = ["x86_64-unknown-linux-gnu"]
+# The demo archive is not a complete SDK; the tagged archive includes both RR runtimes.
+url = "https://codeload.github.com/NVIDIA/DLSS/zip/refs/tags/v310.4.0"
+sha256 = "d42895d04cd9c3a9389d27dd85edcf3be8ea29ddc3b8a29613a9a848e070f8ae"
+required = [
+    "include/nvsdk_ngx.h",
+    "include/nvsdk_ngx_defs.h",
+    "include/nvsdk_ngx_defs_dlssd.h",
+    "include/nvsdk_ngx_helpers.h",
+    "include/nvsdk_ngx_helpers_dlssd.h",
+    "include/nvsdk_ngx_helpers_dlssd_vk.h",
+    "include/nvsdk_ngx_helpers_vk.h",
+    "include/nvsdk_ngx_params.h",
+    "include/nvsdk_ngx_params_dlssd.h",
+    "include/nvsdk_ngx_vk.h",
+    "lib/Linux_x86_64/libnvsdk_ngx.a",
+    "lib/Linux_x86_64/rel/libnvidia-ngx-dlssd.so.310.4.0",
+    "lib/Linux_x86_64/dev/libnvidia-ngx-dlssd.so.310.4.0",
+    "LICENSE.txt",
+]
+
+[[sdks.dlss.artifacts.runtime]]
+source = "lib/Linux_x86_64/rel/libnvidia-ngx-dlssd.so.310.4.0"
+destination = "libnvidia-ngx-dlssd.so.310.4.0"
+profile = "release"
+
+[[sdks.dlss.artifacts.runtime]]
+source = "lib/Linux_x86_64/dev/libnvidia-ngx-dlssd.so.310.4.0"
+destination = "libnvidia-ngx-dlssd.so.310.4.0"
+profile = "development"
+
+[[sdks.dlss.artifacts.runtime]]
+source = "LICENSE.txt"
+destination = "nvidia-rtx-sdk-license.txt"
+
+[sdks.nrd]
+version = "4.17.3"
+environment = "NRD_SDK"
+license = "NVIDIA RTX SDKs License"
+license_url = "https://github.com/NVIDIA-RTX/NRD/blob/v4.17.3/LICENSE.txt"
+
+[[sdks.nrd.artifacts]]
+id = "source"
+targets = ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
+url = "https://codeload.github.com/NVIDIA-RTX/NRD/zip/refs/tags/v4.17.3"
+sha256 = "c3a71eb0c3577f664f6f8bf3be7c585a39911fbf2895c144af10c58b861ad6ba"
+required = [
+    "CMakeLists.txt", "LICENSE.txt", "Source/Wrapper.cpp",
+    "Include/NRD.h", "Include/NRDDescs.h", "Include/NRDSettings.h",
+    "Integration/NRDIntegration.h", "Integration/NRDIntegration.hpp",
+    "Shaders/NRD.hlsli", "Resources/Version.h",
+    "deps/nri/CMakeLists.txt", "deps/nri/Include/NRI.h",
+    "deps/shadermake/CMakeLists.txt", "deps/mathlib/CMakeLists.txt",
+    "deps/sse2neon/LICENSE", "deps/sse2neon/sse2neon.h",
+    "deps/vulkan-headers/include/vulkan/vulkan.h", "deps/vma/include/vk_mem_alloc.h",
+]
+
+[sdks.nrd.artifacts.assembly]
+root = "NRD-4.17.3"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/NVIDIA-RTX/NRI/zip/refs/tags/v179"
+sha256 = "d1ae08ef9db850b88261904e7b7ae920f3f23d35255f8293d4e033817fbe526c"
+root = "NRI-179"
+destination = "deps/nri"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/NVIDIA-RTX/ShaderMake/zip/18f5a344e7ca8fa65daaf079d07bc8ce38453e05"
+sha256 = "35de2547e28cf10f18a0e2782cf154a3d1610212d00d829fa8e73a18210623b6"
+root = "ShaderMake-18f5a344e7ca8fa65daaf079d07bc8ce38453e05"
+destination = "deps/shadermake"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/NVIDIA-RTX/MathLib/zip/refs/tags/v11"
+sha256 = "9bd668daa3770a684ca86ccfbd15dd5e1927f259bc531034a4fd943e1f98f5c9"
+root = "MathLib-11"
+destination = "deps/mathlib"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/DLTcollab/sse2neon/zip/13a42df35dc7fcc94f987568e7274a998bb6cc86"
+sha256 = "3c9180edba8fa3f1260cc3def6171132943c83f976c71e48a64d2fcb323ce410"
+root = "sse2neon-13a42df35dc7fcc94f987568e7274a998bb6cc86"
+destination = "deps/sse2neon"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/KhronosGroup/Vulkan-Headers/zip/refs/tags/v1.4.349"
+sha256 = "01944bfa7d82bfd3a3585c58e560ad61261ffa8f5f3d8104d81b49a011c2e262"
+root = "Vulkan-Headers-1.4.349"
+destination = "deps/vulkan-headers"
+
+[[sdks.nrd.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/zip/b3cbbb43ea3a506dffe10759e205a41c27c35ae2"
+sha256 = "96a77770701995c70054bd941ccf1638d0bb2bcacd699e0a6190aa784337197a"
+root = "VulkanMemoryAllocator-b3cbbb43ea3a506dffe10759e205a41c27c35ae2"
+destination = "deps/vma"
+
+[sdks.omm]
+version = "1.9.2"
+environment = "OMM_SDK"
+license = "NVIDIA RTX SDKs License"
+license_url = "https://github.com/NVIDIA-RTX/OMM/blob/v1.9.2/LICENSE.txt"
+
+[[sdks.omm.artifacts]]
+id = "linux-x86_64"
+targets = ["x86_64-unknown-linux-gnu"]
+url = "https://github.com/NVIDIA-RTX/OMM/releases/download/v1.9.2/Opacity.Micro-Map.SDK.Linux.zip"
+sha256 = "6dda4c8b7a592cd9d33fcf161b62bda0f914d2becd68bcbca1ea3e03c0340863"
+required = ["include/omm.h", "lib/libomm-lib.so.1.9.2"]
+
+[[sdks.omm.artifacts]]
+id = "windows-x86_64"
+targets = ["x86_64-pc-windows-msvc"]
+url = "https://github.com/NVIDIA-RTX/OMM/releases/download/v1.9.2/Opacity.Micro-Map.SDK.Windows.zip"
+sha256 = "101d91d97ad6cad47776c998261f5b4fba80fca2dc2ff01a0de56bdb6d574262"
+required = ["include/omm.h", "bin/omm-lib.dll"]
+
+[[sdks.omm.artifacts]]
+id = "macos-source"
+targets = ["x86_64-apple-darwin", "aarch64-apple-darwin"]
+url = "https://codeload.github.com/NVIDIA-RTX/OMM/zip/9abacd0f187d0efca491946a29ba7df8c5345264"
+sha256 = "a2db3e7d89245ba50b8ece09ce9357487f59da25ef5171e0756e226a1d9b7812"
+required = [
+    "LICENSE.txt", "include/omm.h", "include/omm.hpp",
+    "source/omm-lib/src/bake.cpp", "source/omm-lib/src/bake_cpu_impl.cpp",
+    "source/omm-lib/src/bake_gpu_impl.cpp", "source/omm-lib/src/debug_impl.cpp",
+    "source/omm-lib/src/serialize_impl.cpp", "source/omm-lib/src/shader_bindings.cpp",
+    "source/omm-lib/src/stb_lib.cpp", "source/omm-lib/src/texture_impl.cpp",
+    "source/third-party/glm/glm/glm.hpp", "source/third-party/lz4/lz4.c",
+    "source/third-party/lz4/lz4.h", "source/third-party/stb/stb_image.h",
+    "source/third-party/xxhash/xxhash.c", "source/third-party/xxhash/xxhash.h",
+]
+
+[sdks.omm.artifacts.assembly]
+root = "OMM-9abacd0f187d0efca491946a29ba7df8c5345264"
+
+[[sdks.omm.artifacts.assembly.relocations]]
+source = "libraries/omm-lib/include"
+destination = "include"
+
+[[sdks.omm.artifacts.assembly.relocations]]
+source = "libraries/omm-lib"
+destination = "source/omm-lib"
+
+[[sdks.omm.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/g-truc/glm/zip/2d4c4b4dd31fde06cfffad7915c2b3006402322f"
+sha256 = "a9a12e94f456c1c6343ffe59e16b811f654db7bba86be7aabaed04deb3968517"
+root = "glm-2d4c4b4dd31fde06cfffad7915c2b3006402322f"
+destination = "source/third-party/glm"
+
+[[sdks.omm.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/nothings/stb/zip/fede005abaf93d9d7f3a679d1999b2db341b360f"
+sha256 = "8acb0193e3f2e8a8e7dd05ab5d5e27db3625123ca45d4db6b51c7fbe55bc7130"
+root = "stb-fede005abaf93d9d7f3a679d1999b2db341b360f"
+destination = "source/third-party/stb"
+
+[[sdks.omm.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/Cyan4973/xxHash/zip/c961fbe61ad1ee1e430b9c304735a0534fda1c6d"
+sha256 = "f0c173d40dc7e4933603b5eaf8861aa722191e0efa17aa597c986771ae09dac2"
+root = "xxHash-c961fbe61ad1ee1e430b9c304735a0534fda1c6d"
+destination = "source/third-party/xxhash"
+
+[[sdks.omm.artifacts.assembly.dependencies]]
+url = "https://codeload.github.com/lz4/lz4/zip/ec86e3da5d5be185875ea44988b9373ff50bb98d"
+sha256 = "f198c8a0e68e131d84938668c74cfc9f416388ac4f0844b03f2a2d0b5ffbec45"
+root = "lz4-ec86e3da5d5be185875ea44988b9373ff50bb98d/lib"
+destination = "source/third-party/lz4"
+# The rest of lib/ includes an old xxhash.h that shadows the pinned xxHash SDK.
+files = ["lz4.c", "lz4.h", "LICENSE"]
+
+[[sdks.omm.artifacts.assembly.patches]]
+path = "source/omm-lib/src/std_allocator.h"
+before = "#include <vector>"
+after = "#include <stdint.h>\n#include <vector>"
+
+[[sdks.omm.artifacts.assembly.patches]]
+path = "source/omm-lib/src/std_allocator.h"
+before = "#elif __linux__"
+after = "#elif defined(__linux__) || defined(__APPLE__)"
+
+[sdks.streamline]
+version = "2.9.0"
+environment = "STREAMLINE_SDK"
+license = "MIT with separately licensed runtime components"
+license_url = "https://github.com/NVIDIA-RTX/Streamline/blob/v2.9.0/license.txt"
+
+[[sdks.streamline.artifacts]]
+id = "windows-x86_64"
+targets = ["x86_64-pc-windows-msvc"]
+url = "https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.9.0/streamline-sdk-v2.9.0.zip"
+sha256 = "b7e4f31706cfacafba95d2d4abc2c9dcf2dc5fc58b2a6917c71f83051d271aa1"
+required = [
+    "include/sl.h",
+    "include/sl_appidentity.h",
+    "include/sl_consts.h",
+    "include/sl_core_api.h",
+    "include/sl_core_types.h",
+    "include/sl_device_wrappers.h",
+    "include/sl_dlss.h",
+    "include/sl_dlss_d.h",
+    "include/sl_result.h",
+    "include/sl_security.h",
+    "include/sl_struct.h",
+    "include/sl_version.h",
+    "bin/x64/sl.interposer.dll",
+    "bin/x64/sl.common.dll",
+    "bin/x64/sl.pcl.dll",
+    "bin/x64/sl.dlss_d.dll",
+    "bin/x64/NvLowLatencyVk.dll",
+    "bin/x64/nvngx_dlssd.dll",
+    "bin/x64/nvngx_dlss.license.txt",
+    "bin/x64/reflex.license.txt",
+    "license.txt",
+    "3rd-party-licenses.md",
+]
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/sl.interposer.dll"
+destination = "sl.interposer.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/sl.common.dll"
+destination = "sl.common.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/sl.pcl.dll"
+destination = "sl.pcl.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/sl.dlss_d.dll"
+destination = "sl.dlss_d.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/NvLowLatencyVk.dll"
+destination = "NvLowLatencyVk.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/nvngx_dlssd.dll"
+destination = "nvngx_dlssd.dll"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "license.txt"
+destination = "streamline-license.txt"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "3rd-party-licenses.md"
+destination = "streamline-3rd-party-licenses.md"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/nvngx_dlss.license.txt"
+destination = "nvngx_dlss.license.txt"
+
+[[sdks.streamline.artifacts.runtime]]
+source = "bin/x64/reflex.license.txt"
+destination = "reflex.license.txt"

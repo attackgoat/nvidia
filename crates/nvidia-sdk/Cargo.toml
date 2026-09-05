@@ -1,0 +1,39 @@
+[package]
+name = "nvidia-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/nvidia-sdk"
+description = "Verified acquisition and staging for NVIDIA graphics SDKs"
+categories = ["development-tools::build-utils", "graphics"]
+keywords = ["nvidia", "sdk", "graphics"]
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-unknown-linux-gnu"]
+
+[[bin]]
+name = "nvidia-sdk"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+fs2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
+ureq.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
