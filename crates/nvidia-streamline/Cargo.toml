@@ -1,0 +1,40 @@
+[package]
+name = "nvidia-streamline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/nvidia-streamline"
+description = "Vulkan bindings for NVIDIA DLSS Ray Reconstruction through Streamline"
+build = "build.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc"]
+
+[features]
+default = ["vk-graph"]
+vk-graph = ["dep:vk-graph"]
+
+[dependencies]
+anyhow = "1.0"
+ash = { version = "0.38", default-features = false }
+log = "0.4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+vk-graph = { workspace = true, optional = true }
+
+[target.x86_64-pc-windows-msvc.dependencies]
+ash = { version = "0.38", default-features = false, features = ["loaded"] }
+
+[build-dependencies]
+cc = "1.2"
+dunce = "1.0"
+nvidia-sdk = { version = "0.1.0", path = "../nvidia-sdk" }
+
+[lints]
+workspace = true
