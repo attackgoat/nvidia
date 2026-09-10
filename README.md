@@ -15,7 +15,7 @@ Rust integrations for selected NVIDIA graphics SDKs.
 | OMM CPU baker | [![nvidia-omm](https://img.shields.io/crates/v/nvidia-omm.svg)](https://crates.io/crates/nvidia-omm) | [![docs.rs](https://docs.rs/nvidia-omm/badge.svg)](https://docs.rs/nvidia-omm) |
 | Streamline | [![nvidia-streamline](https://img.shields.io/crates/v/nvidia-streamline.svg)](https://crates.io/crates/nvidia-streamline) | [![docs.rs](https://docs.rs/nvidia-streamline/badge.svg)](https://docs.rs/nvidia-streamline) |
 
-See the [changelog](https://github.com/attackgoat/nvidia/blob/main/CHANGELOG.md)
+See the [SDK changelog and integration changelog links](https://github.com/attackgoat/nvidia/blob/main/CHANGELOG.md)
 and [release checklist](https://github.com/attackgoat/nvidia/blob/main/RELEASE.md).
 
 > [!NOTE]
