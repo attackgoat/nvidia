@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.0 (Unreleased)
+## nvidia-nrd 0.1.1 (2026-09-10)
+
+- Fix repeated native compilation in downstream projects by watching SDK source
+  files individually instead of recursively watching the entire SDK directory.
+
+## 0.1.0 (2026-09-05)
 
 Initial extraction of the NVIDIA integrations from private codebase.
 

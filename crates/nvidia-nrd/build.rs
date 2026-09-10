@@ -3,6 +3,8 @@ use {
     std::{env, error::Error, io, path::PathBuf},
 };
 
+mod sdk;
+
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rustc-check-cfg=cfg(nvidia_nrd_native)");
     println!("cargo:rerun-if-env-changed=DOCS_RS");
@@ -44,7 +46,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         ))
     })?;
 
-    println!("cargo:rerun-if-changed={}", sdk.display());
+    for input in sdk::sdk_inputs(&sdk)? {
+        println!("cargo:rerun-if-changed={}", input.display());
+    }
 
     let manifest =
         PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("missing CARGO_MANIFEST_DIR")?);

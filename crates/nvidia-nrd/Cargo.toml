@@ -1,6 +1,6 @@
 [package]
 name = "nvidia-nrd"
-version.workspace = true
+version = "0.1.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -30,6 +30,9 @@ vk-graph = { workspace = true, optional = true }
 cmake = "0.1"
 dunce = "1"
 nvidia-sdk = { version = "0.1.0", path = "../nvidia-sdk" }
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true
