@@ -102,9 +102,9 @@ root = "ShaderMake-18f5a344e7ca8fa65daaf079d07bc8ce38453e05"
 destination = "deps/shadermake"
 
 [[sdks.nrd.artifacts.assembly.dependencies]]
-url = "https://codeload.github.com/NVIDIA-RTX/MathLib/zip/refs/tags/v11"
-sha256 = "9bd668daa3770a684ca86ccfbd15dd5e1927f259bc531034a4fd943e1f98f5c9"
-root = "MathLib-11"
+url = "https://codeload.github.com/NVIDIA-RTX/MathLib/zip/e3eee9362880b708a315b9946df51dae332bb46f"
+sha256 = "fe941fa2805879d657dc7a689a716662034d40b67c0aa4f6c9812a6ccdea791c"
+root = "MathLib-e3eee9362880b708a315b9946df51dae332bb46f"
 destination = "deps/mathlib"
 
 [[sdks.nrd.artifacts.assembly.dependencies]]

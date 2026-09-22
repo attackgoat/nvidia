@@ -35,6 +35,7 @@ static float expectedScale[2];
 static int expectedFlags;
 static unsigned expectedDepth;
 static unsigned expectedGuide;
+static int expectedQuality;
 static unsigned evaluations;
 static unsigned creations;
 
@@ -57,6 +58,7 @@ static NVSDK_NGX_Result captureCreation(
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Height) == 32);
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutWidth) == 128);
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutHeight) == 64);
+    assert(parameter<int>(params, NVSDK_NGX_Parameter_PerfQualityValue) == expectedQuality);
     *handle = reinterpret_cast<NVSDK_NGX_Handle*>(2);
     ++creations;
     return NVSDK_NGX_Result_Success;
@@ -121,7 +123,12 @@ int main()
     for (unsigned color : {0, 1})
     for (unsigned motion : {0, 1})
     for (unsigned depth : {0, 1, 2})
+    for (const auto mode : {
+             std::pair{kDlssRrQualityBalanced, NVSDK_NGX_PerfQuality_Value_Balanced},
+             std::pair{kDlssRrQualityPerformance, NVSDK_NGX_PerfQuality_Value_MaxPerf},
+             std::pair{kDlssRrQualityUltraPerformance, NVSDK_NGX_PerfQuality_Value_UltraPerformance}})
     {
+        expectedQuality = mode.second;
         Parameters params;
         NgxContext context(L"", L"", nullptr);
         context.parameters = &params;
@@ -145,7 +152,7 @@ int main()
         NgxFrameConstants frame{};
         auto evaluate = [&]() {
             return nvidia_dlss_ngx_evaluate(&context, reinterpret_cast<VkCommandBuffer>(3),
-                kDlssRrQualityBalanced, &frame, &resources);
+                mode.first, &frame, &resources);
         };
         for (const auto scale : {std::pair{1.0f, 1.0f}, std::pair{64.0f, -32.0f},
                  std::pair{0.5f, 0.0f}, std::pair{0.0f, -0.5f}, std::pair{0.0f, -0.0f}})
@@ -188,7 +195,7 @@ int main()
         }
         assert(evaluations == before && creations == created);
     }
-    assert(creations == 12 && evaluations == 120);
+    assert(creations == 36 && evaluations == 360);
     assert(!validConfig({2, 0, 0}));
     assert(!validConfig({0, 2, 0}));
     assert(!validConfig({0, 0, 3}));
