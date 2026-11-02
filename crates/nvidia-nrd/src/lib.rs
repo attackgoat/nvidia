@@ -32,7 +32,7 @@ pub const QUEUED_EVALUATIONS: u8 = 3;
 #[cfg(nvidia_nrd_native)]
 const REQUIRED_DEVICE_EXTENSIONS: &[&CStr] = &[c"VK_KHR_push_descriptor"];
 
-pub const SDK_VERSION: &str = "4.17.3";
+pub const SDK_VERSION: &str = "4.18.0";
 
 #[cfg(any(nvidia_nrd_native, test))]
 const VULKAN_1_4: u32 = vk::make_api_version(0, 1, 4, 0);

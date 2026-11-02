@@ -113,7 +113,7 @@ impl Context {
             NonNull::new(raw).context("initialization of streamline returned a null context")?;
         CONTEXT_ACTIVE.store(true, Ordering::SeqCst);
 
-        info!("initialized streamline 2.9.0 dlss ray reconstruction");
+        info!("initialized streamline 2.14.16 dlss ray reconstruction");
 
         Ok(Self {
             raw: Mutex::new(Some(raw)),

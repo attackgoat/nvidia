@@ -18,8 +18,8 @@ Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 #include "NRDIntegration.h"
 #include "NRDIntegration.hpp"
 
-static_assert(NRD_VERSION_MAJOR == 4 && NRD_VERSION_MINOR == 17 && NRD_VERSION_BUILD == 3,
-    "NRD SDK must be version 4.17.3");
+static_assert(NRD_VERSION_MAJOR == 4 && NRD_VERSION_MINOR == 18 && NRD_VERSION_BUILD == 0,
+    "NRD SDK must be version 4.18.0");
 
 namespace {
 

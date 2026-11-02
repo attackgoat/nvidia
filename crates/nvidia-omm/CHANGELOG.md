@@ -1,5 +1,9 @@
 # nvidia-omm Changelog
 
+## Unreleased
+
+- Update OMM SDK to `1.10.0`.
+
 ## 0.1.0 (2026-09-05)
 
 Published `nvidia-omm` to crates.io. Initial extraction from private codebase.

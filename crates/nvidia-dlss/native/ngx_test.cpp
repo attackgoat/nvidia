@@ -59,6 +59,15 @@ static NVSDK_NGX_Result captureCreation(
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutWidth) == 128);
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutHeight) == 64);
     assert(parameter<int>(params, NVSDK_NGX_Parameter_PerfQualityValue) == expectedQuality);
+    for (const char* preset : {
+             NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_DLAA,
+             NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_Quality,
+             NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_Balanced,
+             NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_Performance,
+             NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_UltraPerformance})
+    {
+        assert(parameter<unsigned>(params, preset) == NVSDK_NGX_RayReconstruction_Hint_Render_Preset_E);
+    }
     *handle = reinterpret_cast<NVSDK_NGX_Handle*>(2);
     ++creations;
     return NVSDK_NGX_Result_Success;

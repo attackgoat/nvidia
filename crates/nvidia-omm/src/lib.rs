@@ -18,7 +18,7 @@ use anyhow::{Context as _, Result, ensure};
 
 pub const ALPHA_CUTOFF: f32 = 0.5;
 pub const FOUR_STATE_FORMAT: u16 = 2;
-pub const SDK_VERSION: &str = "1.9.2";
+pub const SDK_VERSION: &str = "1.10.0";
 
 #[derive(Clone, Copy, Debug)]
 pub struct AlphaMip<'a> {
@@ -83,7 +83,7 @@ impl AlphaMip<'_> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BakeConfig {
     /// Must be positive with a finite, normal `f32` square. Baking also rejects
-    /// geometry whose derived subdivision arithmetic is unsafe in OMM 1.9.2.
+    /// geometry whose derived subdivision arithmetic exceeds conservative SDK bounds.
     pub dynamic_subdivision_scale: f32,
     pub rejection_threshold: f32,
     pub max_subdivision_level: u8,
@@ -149,7 +149,7 @@ impl BakeInput<'_> {
             "nvidia omm subdivision level exceeds 12"
         );
 
-        // OMM 1.9.2 bake_cpu_impl.cpp ComputeAreaHeuristic casts the ratio to
+        // OMM bake_cpu_impl.cpp ComputeAreaHeuristic casts the ratio to
         // uint32_t BEFORE clamping. Use f32 throughout, including length(cross)
         // (not abs(cross)), so validation catches the SDK's intermediate overflow.
         let scale = self.config.dynamic_subdivision_scale;
@@ -654,28 +654,34 @@ mod test {
     #[cfg(nvidia_omm_native)]
     #[test]
     fn native_baker_returns_owned_special_indices() {
-        let baker = Baker::new(Baker::bundled_backend_path().unwrap()).unwrap();
-        let texture = baker
-            .create_texture(&[AlphaMip {
-                width: 2,
-                height: 2,
-                row_pitch: 0,
-                data: &[0; 4],
-            }])
-            .unwrap();
-        let output = baker
-            .bake(
-                &texture,
-                BakeInput {
-                    texture_coordinates: &[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                    indices: &[0, 1, 2],
-                    config: BakeConfig::default(),
-                },
-            )
-            .unwrap();
+        for (alpha, special_index) in [(0, -1), (255, -2)] {
+            let output = {
+                let baker = Baker::new(Baker::bundled_backend_path().unwrap()).unwrap();
+                let texture = baker
+                    .create_texture(&[AlphaMip {
+                        width: 2,
+                        height: 2,
+                        row_pitch: 0,
+                        data: &[alpha; 4],
+                    }])
+                    .unwrap();
 
-        assert_eq!(output.indices.as_ref(), &[-1]);
-        assert_eq!(output.statistics.fully_transparent, 1);
+                baker
+                    .bake(
+                        &texture,
+                        BakeInput {
+                            texture_coordinates: &[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                            indices: &[0, 1, 2],
+                            config: BakeConfig::default(),
+                        },
+                    )
+                    .unwrap()
+            };
+
+            assert_eq!(output.indices.as_ref(), &[special_index]);
+            assert_eq!(output.statistics.fully_transparent, u32::from(alpha == 0));
+            assert_eq!(output.statistics.fully_opaque, u32::from(alpha == 255));
+        }
     }
 
     #[test]

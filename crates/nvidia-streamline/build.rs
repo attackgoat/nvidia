@@ -78,7 +78,7 @@ fn build_native() -> Result<(), Box<dyn Error>> {
 
     for header in HEADERS {
         let path = include_dir.join(header);
-        require_complete_file(&path, 160, "streamline 2.9.0 header")?;
+        require_complete_file(&path, 160, "streamline 2.14.16 header")?;
 
         rerun_if_changed(&path);
     }
@@ -88,7 +88,7 @@ fn build_native() -> Result<(), Box<dyn Error>> {
     let runtime_sources = RUNTIME_FILES.map(|name| bin_dir.join(name));
 
     for path in &runtime_sources {
-        require_complete_file(path, 4096, "streamline 2.9.0 runtime")?;
+        require_complete_file(path, 4096, "streamline 2.14.16 runtime")?;
 
         rerun_if_changed(path);
     }
@@ -157,7 +157,7 @@ fn sdk_dir() -> Result<PathBuf, Box<dyn Error>> {
         io::Error::new(
             error.kind(),
             format!(
-                "canonicalizing streamline 2.9.0 sdk directory {}: {error}",
+                "canonicalizing streamline 2.14.16 sdk directory {}: {error}",
                 sdk.path.display()
             ),
         )
@@ -224,9 +224,9 @@ fn validate_version(path: &Path) -> io::Result<()> {
         cpp_define(&contents, "SL_VERSION_PATCH")?,
     );
 
-    if version != (2, 9, 0) {
+    if version != (2, 14, 16) {
         return Err(io::Error::other(format!(
-            "STREAMLINE_SDK must point to streamline 2.9.0, found {}.{}.{}",
+            "STREAMLINE_SDK must point to streamline 2.14.16, found {}.{}.{}",
             version.0, version.1, version.2
         )));
     }

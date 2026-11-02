@@ -1,6 +1,6 @@
 # Native Regression Test
 
-With `DLSS_SDK` pointing at the resolved DLSS 310.4.0 SDK, run from the repository root:
+With `DLSS_SDK` pointing at the resolved DLSS 310.9.16 SDK, run from the repository root:
 
 ```sh
 c++ -std=c++17 -I"$DLSS_SDK/include" crates/nvidia-dlss/native/ngx_test.cpp \

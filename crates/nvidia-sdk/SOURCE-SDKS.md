@@ -1,7 +1,7 @@
 # Source SDK Requirements
 
 This repository contains bindings, not SDK payloads. Linux and Windows OMM use
-the hash-verified official 1.9.2 archives in `sdk-lock.toml`.
+the hash-verified official 1.10.0 archives in `sdk-lock.toml`.
 
 > [!WARNING]
 > Those OMM archives do not contain `LICENSE.txt`. Redistribution requires
@@ -44,9 +44,9 @@ provenance is not cryptographically authenticated.
 > trusted after verified acquisition. Do not use untrusted SDK trees, which
 > contain build scripts and native code.
 
-## NRD 4.17.3
+## NRD 4.18.0
 
-The assembled tree contains NVIDIA-RTX/NRD `v4.17.3` sources, including
+The assembled tree contains NVIDIA-RTX/NRD `v4.18.0` sources, including
 `Include`, `Integration`, `Source`, `Shaders`, `Resources`, its CMake files and
 license. The resolver assembles complete upstream dependency trees under `deps`,
 retaining their licenses.
@@ -60,11 +60,11 @@ retaining their licenses.
 
 | Directory | Official Repository | Reference Revision |
 | --- | --- | --- |
-| `deps/nri` | https://github.com/NVIDIA-RTX/NRI | `v179` |
-| `deps/shadermake` | https://github.com/NVIDIA-RTX/ShaderMake | `18f5a344e7ca8fa65daaf079d07bc8ce38453e05` |
+| `deps/nri` | https://github.com/NVIDIA-RTX/NRI | `v191` |
+| `deps/shadermake` | https://github.com/NVIDIA-RTX/ShaderMake | `3f01623a76b092ac127d2debd79a672f55d77665` |
 | `deps/mathlib` | https://github.com/NVIDIA-RTX/MathLib | `e3eee9362880b708a315b9946df51dae332bb46f` (`v11`) |
-| `deps/vulkan-headers` | https://github.com/KhronosGroup/Vulkan-Headers | `v1.4.349` |
-| `deps/vma` | https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator | `b3cbbb43ea3a506dffe10759e205a41c27c35ae2` |
+| `deps/vulkan-headers` | https://github.com/KhronosGroup/Vulkan-Headers | `v1.4.367` |
+| `deps/vma` | https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator | `0f1a757da579831283413295cc7f3b47eb521c77` |
 | `deps/sse2neon` | https://github.com/DLTcollab/sse2neon | `13a42df35dc7fcc94f987568e7274a998bb6cc86` |
 
 The sse2neon commit is explicitly pinned, not resolved from `master` at build
@@ -91,7 +91,40 @@ The wrapper builds NRD, NRI, ShaderMake, and the bridge statically in Cargo's
 output directory. It embeds SPIR-V and forces FetchContent offline.
 It uses normal encoding 4 and roughness encoding 1, matching the reference.
 
-NRI v179's GCC `maybe-uninitialized` and Clang `inconsistent-missing-override`
+The native bridge still exposes only RELAX diffuse/specular SH. Its resource and
+settings interface is unchanged; the new `motionVectorBias`, `inputRectOrigin`,
+and `outputRectOrigin` fields retain zero defaults. NRD 4.18's upstream time-based
+accumulation is retained, so unchanged settings do not imply identical output.
+Upstream CMake supplies `NRD_INTERNAL` and the new shader resource/permutation
+definitions. The bridge disables `NRD_SUPPORTS_QUAD_INTRINSICS`: only REBLUR uses
+those intrinsics, and RELAX SH therefore keeps its existing Vulkan feature
+requirements without `VK_KHR_compute_shader_derivatives`. Unused NRI Metal and
+WebGPU backends are explicitly disabled; macOS continues to use Vulkan/MoltenVK.
+
+The November 2, 2026 update verified actual downloads of the NRD, NRI, ShaderMake,
+Vulkan-Headers, and VMA archives against the SHA-256 pins in `sdk-lock.toml`.
+NRD's official 4,814,258-byte tagged archive is pinned as
+`d9cb9476c11a8773bfe32d99d26e7038bac0ef3e09957f63e35c3b0fe9f29790`.
+The dependency revisions follow NRD 4.18.0 and NRI v191's upstream CMake files;
+the MathLib and sse2neon pins are unchanged.
+
+With normal encoding 4, upstream `CompareMaterials` expands to scalar `true`.
+Five new vector constructors in `Shaders/RELAX_TemporalAccumulation.cs.hlsl` then
+fail Vulkan SDK DXC compilation. The acquisition recipe changes only those five
+`float3(...)` / `float4(...)` constructors to `(float3)...` / `(float4)...` casts,
+which allow scalar replication while retaining component-wise conversion for
+encodings with material IDs. The normal encoding and comparison expressions are
+unchanged. Each preimage must occur exactly once; patches are included in the
+cache identity and applied only to fresh acquisition staging. Explicit SDK trees
+must already contain these corrections and are never patched by the resolver.
+
+The upstream shader file has SHA-256
+`c177db8caf75a66f04fd6ad09ca77ee76e742f3fc49083f6024593d06832dec7`;
+the prepared file has SHA-256
+`c99ab991826f566a625186a0176fc9fde0f9d259c2a6e0caf84f2914857c3cea`.
+A full-file comparison confirmed exactly the five recorded substitutions.
+
+NRI's GCC `maybe-uninitialized` and Clang `inconsistent-missing-override`
 diagnostics remain visible but are not promoted to errors on the NRI targets.
 
 Native targets remain x86-64 GNU Linux, x86-64 MSVC Windows, and Apple silicon
@@ -100,7 +133,24 @@ such as MoltenVK at runtime. Intel macOS remains an NRD stub, as in Retro.
 
 `--no-default-features` selects the NRD stub without inspecting SDK files.
 
-## OMM 1.9.2 on macOS
+### NRD Validation on November 2, 2026
+
+On x86-64 GNU Linux, using GCC 14.2, CMake 3.31.6, and Vulkan SDK 1.4.350.1 DXC:
+
+- Hash-verified acquisition and offline reuse of the patched source assembly passed.
+- NRD SPIR-V compilation, native static-library linking, and targeted FFI-layout,
+  Vulkan-version/extension, queued-evaluation-capacity, active-rectangle, and
+  source-watch tests passed. These native tests do not dispatch GPU work.
+- Resolver tests passed for version pins, the complete dependency closure, exact
+  shader corrections, and patch-dependent cache identity.
+- Retro's graph-enabled `cargo check --locked -p gpu-denoise --lib` passed.
+- Generated shader configuration was checked for normal encoding 4, roughness
+  encoding 1, and disabled quad intrinsics.
+
+Windows/macOS native builds and in-game GPU, visual, and performance validation
+were not run. No full test suite or game-readiness claim is implied.
+
+## OMM 1.10.0
 
 Enable the `native` feature. Both Intel and Apple silicon native-host builds
 compile the CPU baker statically. Cross-target builds retain the reference's
@@ -108,20 +158,23 @@ stub behavior.
 
 Xcode command-line tools and a C++20 compiler are required.
 No GPU shader compiler or generated GPU shader blobs are needed.
+The existing `cc` build does not run upstream's CMake project, so its new
+CMake 4.1 minimum does not apply to this CPU-only integration. Compiler flags,
+CPU-baking configuration, and conservative input validation are unchanged.
 
 <details>
 <summary>macOS OMM source layout, dependency pins, and portability patches</summary>
 
 The resolver assembles `include/omm.h`, `include/omm.hpp`, `LICENSE.txt`, and
 `source/omm-lib/{src,shaders}` from NVIDIA-RTX/OMM commit
-`9abacd0f187d0efca491946a29ba7df8c5345264` (`v1.9.2`), plus these dependencies:
+`dfa2e3b75053df1644725efd9eafa4a8dce365ab` (`1.10.0`), plus these dependencies:
 
 | Directory | Official Repository | Commit |
 | --- | --- | --- |
-| `source/third-party/glm` | https://github.com/g-truc/glm | `2d4c4b4dd31fde06cfffad7915c2b3006402322f` |
-| `source/third-party/stb` | https://github.com/nothings/stb | `fede005abaf93d9d7f3a679d1999b2db341b360f` |
-| `source/third-party/xxhash` | https://github.com/Cyan4973/xxHash | `c961fbe61ad1ee1e430b9c304735a0534fda1c6d` |
-| `source/third-party/lz4` | https://github.com/lz4/lz4 | `ec86e3da5d5be185875ea44988b9373ff50bb98d` |
+| `source/third-party/glm` | https://github.com/g-truc/glm | `6f14f4792a0cde5d0cf2c910506724d61cb95834` |
+| `source/third-party/stb` | https://github.com/nothings/stb | `2c980bb59875b0d32144a71867fbdebb2f77cd20` |
+| `source/third-party/xxhash` | https://github.com/Cyan4973/xxHash | `680bf463fa1ca0461b9a7c2dab7556e1f54cf4cf` |
+| `source/third-party/lz4` | https://github.com/lz4/lz4 | `0774d05537f9762f838f7ab541b7765f1a729cb5` |
 
 Use GLM's repository root (containing `glm/glm.hpp`). Place only LZ4's `lib/lz4.c`,
 `lib/lz4.h`, and `lib/LICENSE` directly in the `lz4` directory.
@@ -154,8 +207,37 @@ dynamic library. Pass it to `Baker::new` as with the reference implementation.
 The compiled CPU baker does not load a runtime library on macOS.
 
 On Linux and Windows the helper returns the resolved absolute shared-library
-path. Applications must distribute the library when moved away from the SDK
-cache. They must supply its deployed absolute path.
+path (`lib/libomm-lib.so.1.10.0` or `bin/omm-lib.dll`). Applications must
+distribute the library when moved away from the SDK cache. They must supply its
+deployed absolute path. The bridge checks both the SDK headers and the loaded
+runtime for exactly 1.10.0.
+
+### OMM Validation on November 2, 2026
+
+On x86-64 GNU Linux:
+
+- The downloaded Linux and Windows binary archives matched GitHub's published
+  release-asset SHA-256 digests. Resolver acquisition verified the source and all
+  four dependency archives against `sdk-lock.toml`; offline reuse passed for all
+  four supported target triples.
+- Linux and source `omm.h` files were byte-identical; the Windows header differed
+  only in CRLF line endings.
+- Targeted resolver version-pin, archive-hash, dependency-closure, and
+  source-recipe cache-identity tests passed.
+- Native transparent/opaque baking passed, including reading owned output after
+  dropping the texture and baker. Targeted mip-input, subdivision-arithmetic,
+  texel-bound, and FFI-layout tests passed.
+- The prepared macOS assembly retained both allocator patches and dependency
+  licenses. Its eight upstream C++ translation units matched the existing build
+  list. Those files, the static bridge, LZ4, and xxHash passed Clang 19.1.7
+  Linux-host syntax checks; these are not Apple compilation or linking checks.
+- Retro's four OMM cache/recipe/output tests and two pack action-key tests passed
+  with `nvidia-omm-baker` enabled. The new recipe and SDK-sensitive pack keys
+  prevent reuse of 1.9.2 bake results without deleting existing caches.
+
+Windows/macOS native builds and execution, asset rebaking, and in-game GPU,
+visual, and performance validation were not run. No full test suite or
+game-readiness claim is implied.
 
 ## SHARC 1.8.3
 
@@ -219,11 +301,60 @@ migration. No SHARC payloads are checked into this repository.
 > SHARC remains governed by the upstream NVIDIA RTX SDKs License in `License.md`.
 > Preserve that license and header notices when redistributing.
 
-## Streamline Hash Verification
+## DLSS and Streamline Archive Verification
 
-The Streamline 2.9.0 SHA-256 is
-`b7e4f31706cfacafba95d2d4abc2c9dcf2dc5fc58b2a6917c71f83051d271aa1`.
-This was computed from the actual 145,132,904-byte official release ZIP and
-matches GitHub release asset `286152348`'s published digest.
+The November 2, 2026 update pins the official October 16 releases:
 
-The prior manifest value omitted a `c` and was only 63 characters long.
+- DLSS `v310.9.16`, commit `9981c6350dc58c0ce21f024fd65e31e851c31689`:
+  `https://codeload.github.com/NVIDIA/DLSS/zip/refs/tags/v310.9.16`.
+  The downloaded archive is 718,535,894 bytes; its SHA-256 is
+  `418d6c685b062855f970d55d1e172eff834658a17b3483aaffddf44d5b0cb026`.
+  Use the tagged SDK archive, not the Linux demo ZIP, to retain headers, the NGX
+  static library, and both release and development Ray Reconstruction runtimes.
+- Streamline `v2.14.16`, commit `625db07d4bca5abc67d781c42af7e7fb0761f1b6`:
+  `https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.16/streamline-sdk-v2.14.16.zip`.
+  The downloaded x86-64 archive is 276,016,170 bytes; its SHA-256 is
+  `32041e51db0cab709a271b72a352281b690c2abbd669a827809401a5dd23956b`,
+  matching GitHub's published release-asset digest. The six selected production
+  DLLs and all four upstream license/notice files remain present.
+
+Both hashes were computed from actual official downloads. No SDK payloads are
+stored in this repository. The bindings continue to request Ray Reconstruction
+preset E; the newly available preset F is not selected by this SDK update.
+
+The shared DLSS third-party notice retains the seven notices extracted from the
+310.4.0 guide and adds the Vulkan-Headers notice from section 9.6.8 of the guide
+shipped with 310.9.16. The same guide is included in Streamline 2.14.16. Both
+integrations continue staging that shared notice alongside the acquired licenses.
+
+The programming-guide PDF is byte-identical in both SDK archives, with SHA-256
+`dca4d2e68ccedc04a431803595867a893474b1cce033e65a41e9eab9f6b436f8`.
+All three retained shared-notice copies (both bindings and Retro's packaging copy)
+match, with SHA-256
+`6af5fb39a57f44edbbae80008a6e24884ed7e3f98adbf3b48437c585c8c1b5e5`.
+
+### Validation on November 2, 2026
+
+- Both SDKs were acquired through the resolver, including archive hash and
+  required-input validation. Offline staging of the Linux release/development
+  runtimes and Windows production runtime/notice set passed; staged files matched
+  their acquired inputs by SHA-256.
+- The targeted resolver pin, archive-hash, and runtime-profile tests passed.
+- The DLSS CPU-only native helper regression passed against 310.9.16: 36 feature
+  creations and 360 evaluations with intercepted GPU entrypoints. It checks that
+  all five requested quality-mode presets remain E.
+- Native Linux backend discovery passed with both release and development
+  runtimes and the `vk-graph` feature disabled. Retro's graph-enabled
+  `cargo check --locked -p gpu-denoise --lib` passed.
+- Retro's targeted Steam packaging tests passed for exact Streamline version
+  validation and the Linux/Windows runtime/notice inventories.
+
+Native Windows compilation/execution and in-game GPU, visual, and performance
+validation were not run. These checks do not establish game readiness.
+
+### Historical Streamline 2.9.0 Hash Correction
+
+The previous 145,132,904-byte Streamline 2.9.0 archive was verified as
+`b7e4f31706cfacafba95d2d4abc2c9dcf2dc5fc58b2a6917c71f83051d271aa1`,
+matching GitHub release asset `286152348`'s published digest. This corrected an
+earlier manifest value that omitted a `c` and was only 63 characters long.

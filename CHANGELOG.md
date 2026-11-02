@@ -7,6 +7,13 @@ This changelog covers SDK acquisition and staging. Integration release notes:
 - [nvidia-omm](https://github.com/attackgoat/nvidia/blob/main/crates/nvidia-omm/CHANGELOG.md)
 - [nvidia-streamline](https://github.com/attackgoat/nvidia/blob/main/crates/nvidia-streamline/CHANGELOG.md)
 
+## Unreleased
+
+- Update DLSS SDK to `310.9.16`.
+- Update Streamline SDK to `2.14.16`.
+- Update NRD to `4.18.0` with NRI `v191`.
+- Update OMM to `1.10.0`.
+
 ## 0.1.0 (2026-09-05)
 
 Published `nvidia-sdk` to crates.io.
@@ -15,9 +22,9 @@ Initial extraction of the NVIDIA integrations from private codebase.
 
 - Pinned, SHA-256-verified SDK acquisition, cache/offline support,
   explicit SDK overrides, source dependency assembly, and runtime staging.
-- SHARC 1.8.3 shader-header acquisition on all targets.
+- SHARC `1.8.3` shader-header acquisition on all targets.
 - SDK-free documentation builds; no NVIDIA SDK payloads vendored in the crate.
 
-The declared minimum Rust version is 1.95, including default-feature dependencies.
+The declared minimum Rust version is `1.95`, including default-feature dependencies.
 Native SDK components retain their upstream licenses separately from this
 MIT OR Apache-2.0 crate.

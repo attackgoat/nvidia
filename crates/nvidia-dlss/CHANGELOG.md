@@ -3,6 +3,7 @@
 ## 0.2.0 (Unreleased)
 
 - **Breaking:** Update the optional `vk-graph` adapter from 0.14.7 to 0.15.
+- Update DLSS SDK to 310.9.16.
 
 Publication is pending the crates.io release of `vk-graph` 0.15 and completion
 of the release gates.

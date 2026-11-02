@@ -82,8 +82,8 @@ static_assert(offsetof(NvidiaOmmTextureMip, data) == 16);
 static_assert(offsetof(NvidiaOmmBakeInput, maxWorkloadSize) == 48);
 static_assert(offsetof(NvidiaOmmStatistics, knownArea) == 48);
 static_assert(ommSpecialIndex_FullyUnknownOpaque == -4);
-static_assert(OMM_VERSION_MAJOR == 1 && OMM_VERSION_MINOR == 9 && OMM_VERSION_BUILD == 2,
-    "OMM SDK must be version 1.9.2");
+static_assert(OMM_VERSION_MAJOR == 1 && OMM_VERSION_MINOR == 10 && OMM_VERSION_BUILD == 0,
+    "OMM SDK must be version 1.10.0");
 static_assert(sizeof(NvidiaOmmBakeInput) == 64);
 static_assert(sizeof(NvidiaOmmStatistics) == 56);
 static_assert(sizeof(NvidiaOmmBakeResult) == 136);
@@ -218,7 +218,7 @@ extern "C" int nvidia_omm_create(const char* libraryPath, Context** output) noex
         if (!loadApi(*context))
             return BRIDGE_SYMBOL_MISSING;
         const ommLibraryDesc library = context->api.getLibraryDesc();
-        if (library.versionMajor != 1 || library.versionMinor != 9 || library.versionBuild != 2)
+        if (library.versionMajor != 1 || library.versionMinor != 10 || library.versionBuild != 0)
             return BRIDGE_VERSION_MISMATCH;
         ommBakerCreationDesc desc = ommBakerCreationDescDefault();
         desc.type = ommBakerType_CPU;
@@ -389,7 +389,7 @@ extern "C" const char* nvidia_omm_result_name(int result) noexcept {
     case BRIDGE_INVALID_ARGUMENT: return "bridge invalid argument";
     case BRIDGE_LOAD_FAILED: return "loading OMM shared library failed";
     case BRIDGE_SYMBOL_MISSING: return "required OMM symbol is missing";
-    case BRIDGE_VERSION_MISMATCH: return "OMM runtime version is not 1.9.2";
+    case BRIDGE_VERSION_MISMATCH: return "OMM runtime version is not 1.10.0";
     case BRIDGE_OUT_OF_MEMORY: return "bridge allocation failed";
     case BRIDGE_EXCEPTION: return "unexpected bridge exception";
     case BRIDGE_INVALID_OUTPUT: return "OMM returned invalid output";

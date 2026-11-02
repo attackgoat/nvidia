@@ -921,7 +921,10 @@ mod tests {
     fn parses_lock_manifest() {
         let manifest = LockManifest::load().unwrap();
 
-        assert_eq!(manifest.sdks.dlss.version, "310.4.0");
+        assert_eq!(manifest.sdks.dlss.version, "310.9.16");
+        assert_eq!(manifest.sdks.nrd.version, "4.18.0");
+        assert_eq!(manifest.sdks.omm.version, "1.10.0");
+        assert_eq!(manifest.sdks.streamline.version, "2.14.16");
         assert_eq!(manifest.sdks.streamline.artifacts.len(), 1);
     }
 
@@ -1070,6 +1073,43 @@ mod tests {
     }
 
     #[test]
+    fn nrd_vector_cast_patches_are_exact_and_change_cache_identity() {
+        let mut artifact = LockManifest::load().unwrap().sdks.nrd.artifacts.remove(0);
+        let patched_key = artifact.cache_key().unwrap();
+        let patches = std::mem::take(&mut artifact.assembly.as_mut().unwrap().patches);
+
+        assert_eq!(patches.len(), 5);
+        assert_ne!(patched_key, artifact.cache_key().unwrap());
+
+        let temporary = tempfile::tempdir().unwrap();
+        let path = Path::new("Shaders/RELAX_TemporalAccumulation.cs.hlsl");
+        let source = temporary.path().join(path);
+        fs::create_dir_all(source.parent().unwrap()).unwrap();
+        fs::write(
+            &source,
+            patches
+                .iter()
+                .map(|patch| patch.before.as_str())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .unwrap();
+
+        for patch in &patches {
+            assert_eq!(patch.path, path);
+            patch.apply(temporary.path()).unwrap();
+        }
+
+        let corrected = fs::read_to_string(source).unwrap();
+
+        for patch in patches {
+            assert!(!corrected.contains(&patch.before));
+            assert_eq!(corrected.matches(&patch.after).count(), 1);
+            assert!(patch.apply(temporary.path()).is_err());
+        }
+    }
+
+    #[test]
     fn all_archive_hashes_are_valid_including_streamline() {
         let manifest = LockManifest::load().unwrap();
 
@@ -1082,8 +1122,56 @@ mod tests {
 
         assert_eq!(
             manifest.sdks.streamline.artifacts[0].sha256,
-            "b7e4f31706cfacafba95d2d4abc2c9dcf2dc5fc58b2a6917c71f83051d271aa1"
+            "32041e51db0cab709a271b72a352281b690c2abbd669a827809401a5dd23956b"
         );
+    }
+
+    #[test]
+    fn dlss_runtime_profiles_stage_the_pinned_runtime_and_license() {
+        let manifest = LockManifest::load().unwrap();
+        let entry = &manifest.sdks.dlss;
+        let artifact = &entry.artifacts[0];
+        let temporary = tempfile::tempdir().unwrap();
+        let sdk_root = temporary.path().join("sdk");
+
+        for file in artifact.runtime.as_ref().unwrap() {
+            let source = sdk_root.join(&file.source);
+            fs::create_dir_all(source.parent().unwrap()).unwrap();
+            fs::write(&source, file.source.to_str().unwrap()).unwrap();
+        }
+
+        let resolved = ResolvedSdk::new(
+            Sdk::Dlss,
+            "x86_64-unknown-linux-gnu",
+            entry,
+            artifact,
+            sdk_root,
+            None,
+        );
+
+        for (profile, directory) in [
+            (RuntimeProfile::Release, "rel"),
+            (RuntimeProfile::Development, "dev"),
+        ] {
+            let output = temporary.path().join(profile.name());
+            let staged = resolved.stage_runtime(&output, profile).unwrap();
+            let source = resolved.path.join(format!(
+                "lib/Linux_x86_64/{directory}/libnvidia-ngx-dlssd.so.310.9.16"
+            ));
+
+            assert_eq!(staged.len(), 2);
+            assert_eq!(staged[0].source, source);
+            assert_eq!(
+                staged[0].path,
+                output.join("libnvidia-ngx-dlssd.so.310.9.16")
+            );
+            assert_eq!(
+                fs::read(&staged[0].path).unwrap(),
+                fs::read(source).unwrap()
+            );
+            assert_eq!(staged[1].path, output.join("nvidia-rtx-sdk-license.txt"));
+            assert_eq!(fs::read_to_string(&staged[1].path).unwrap(), "LICENSE.txt");
+        }
     }
 
     #[test]

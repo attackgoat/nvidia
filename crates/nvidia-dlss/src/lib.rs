@@ -8,8 +8,8 @@ use {
     std::path::PathBuf,
 };
 
-pub const DLSS_RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.4.0";
-pub const SDK_VERSION: &str = "310.4.0";
+pub const DLSS_RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.9.16";
+pub const SDK_VERSION: &str = "310.9.16";
 
 /// Color encoding fixed for the lifetime of an initialized evaluator.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -503,6 +503,9 @@ mod tests {
             runtime_dir,
             Some(std::path::Path::new(env!("NVIDIA_DLSS_RUNTIME_DIR")))
         );
+
+        #[cfg(nvidia_dlss_native)]
+        assert!(runtime_dir.unwrap().join(DLSS_RUNTIME_FILE).is_file());
     }
 
     #[test]

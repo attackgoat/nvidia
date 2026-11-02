@@ -8,7 +8,7 @@ use std::{
 
 const LFS_POINTER_PREFIX: &[u8] = b"version https://git-lfs.github.com/spec/v1";
 const NATIVE_TARGET: &str = "x86_64-unknown-linux-gnu";
-const RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.4.0";
+const RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.9.16";
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rustc-check-cfg=cfg(nvidia_dlss_native)");
@@ -60,8 +60,9 @@ fn configure_native() -> Result<(), Box<dyn Error>> {
         "nvsdk_ngx.h",
         "nvsdk_ngx_defs.h",
         "nvsdk_ngx_defs_dlssd.h",
+        "nvsdk_ngx_defs_vk.h",
         "nvsdk_ngx_helpers.h",
-        "nvsdk_ngx_helpers_dlssd.h",
+        "nvsdk_ngx_helpers_dlssd_d3d.h",
         "nvsdk_ngx_helpers_dlssd_vk.h",
         "nvsdk_ngx_helpers_vk.h",
         "nvsdk_ngx_params.h",

@@ -409,7 +409,7 @@ extern "C" int32_t nvidia_sl_is_dlss_rr_supported(
         if (context == nullptr || physicalDevice == nullptr)
             return kInvalidArgument;
 
-        // Streamline 2.9 bypasses its Vulkan adapter callback when deviceLUID is null.
+        // Streamline 2.14.16 bypasses its Vulkan adapter callback when deviceLUID is null.
         uint8_t forceAdapterCheck[8] = {};
         sl::AdapterInfo adapter{};
         adapter.deviceLUID = forceAdapterCheck;

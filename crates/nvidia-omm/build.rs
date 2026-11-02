@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("cargo:rustc-link-lib=dylib=dl");
 
-        sdk.path.join("lib/libomm-lib.so.1.9.2")
+        sdk.path.join("lib/libomm-lib.so.1.10.0")
     } else {
         build.define("NVIDIA_OMM_WINDOWS", None);
         sdk.path.join("bin/omm-lib.dll")
