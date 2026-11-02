@@ -37,6 +37,24 @@ pub const SDK_VERSION: &str = "4.17.3";
 #[cfg(any(nvidia_nrd_native, test))]
 const VULKAN_1_4: u32 = vk::make_api_version(0, 1, 4, 0);
 
+#[cfg(any(nvidia_nrd_native, test))]
+fn validate_rectangles(
+    resource: [u32; 2],
+    current: [u32; 2],
+    previous: [u32; 2],
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        (0..2).all(|axis| resource[axis] > 0
+            && resource[axis] <= u32::from(u16::MAX)
+            && current[axis] > 0
+            && current[axis] <= resource[axis]
+            && previous[axis] > 0
+            && previous[axis] <= resource[axis]),
+        "nrd active rectangles must fit nonzero u16 resource dimensions"
+    );
+    Ok(())
+}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Frame {
@@ -50,6 +68,12 @@ pub struct Frame {
     pub denoising_range: f32,
     pub width: u32,
     pub height: u32,
+    /// Fixed allocation dimensions shared by every input and output image.
+    pub resource_width: u32,
+    pub resource_height: u32,
+    /// Previous frame's active rectangle, for dynamic-resolution reprojection.
+    pub previous_width: u32,
+    pub previous_height: u32,
     pub frame_index: u32,
     pub reset: u32,
     pub settings: RelaxSettings,
@@ -185,6 +209,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn dynamic_rectangles_must_fit_the_fixed_allocation() {
+        for (current, previous) in [
+            ([960, 540], [427, 240]),
+            ([427, 240], [960, 540]),
+            ([693, 390], [691, 389]),
+        ] {
+            assert!(validate_rectangles([960, 540], current, previous).is_ok());
+        }
+        for (resource, current, previous) in [
+            ([960, 540], [0, 240], [960, 540]),
+            ([960, 540], [961, 540], [960, 540]),
+            ([960, 540], [427, 240], [960, 541]),
+            ([0, 540], [1, 240], [1, 240]),
+            ([65536, 540], [427, 240], [427, 240]),
+        ] {
+            assert!(validate_rectangles(resource, current, previous).is_err());
+        }
+    }
+
+    #[test]
     fn rejects_unsupported_api_versions_without_ffi() {
         for version in [
             vk::API_VERSION_1_0,
@@ -277,7 +321,7 @@ mod tests {
         assert_eq!(size_of::<Image>(), 16);
         assert_eq!(size_of::<Resources>(), 176);
         assert_eq!(size_of::<RelaxSettings>(), 40);
-        assert_eq!(size_of::<Frame>(), 344);
+        assert_eq!(size_of::<Frame>(), 360);
     }
 
     #[test]

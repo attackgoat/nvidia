@@ -57,6 +57,10 @@ struct NrdFrame {
     float denoising_range;
     uint32_t width;
     uint32_t height;
+    uint32_t resource_width;
+    uint32_t resource_height;
+    uint32_t previous_width;
+    uint32_t previous_height;
     uint32_t frame_index;
     uint32_t reset;
     struct {
@@ -75,7 +79,7 @@ struct NrdFrame {
 
 static_assert(sizeof(NrdImage) == 16);
 static_assert(sizeof(NrdResources) == 176);
-static_assert(sizeof(NrdFrame) == 344);
+static_assert(sizeof(NrdFrame) == 360);
 
 struct Context {
     nrd::Integration integration;
@@ -189,7 +193,13 @@ extern "C" int32_t nvidia_nrd_evaluate(
 
     try {
         Context& context = *static_cast<Context*>(opaque);
-        int32_t result = recreate(context, frame->width, frame->height);
+        if (frame->width == 0 || frame->height == 0
+            || frame->previous_width == 0 || frame->previous_height == 0
+            || frame->width > frame->resource_width || frame->height > frame->resource_height
+            || frame->previous_width > frame->resource_width || frame->previous_height > frame->resource_height)
+            return -2;
+
+        int32_t result = recreate(context, frame->resource_width, frame->resource_height);
         if (result != 0)
             return result;
 
@@ -205,10 +215,10 @@ extern "C" int32_t nvidia_nrd_evaluate(
         common.resourceSize[1] = context.height;
         common.resourceSizePrev[0] = context.width;
         common.resourceSizePrev[1] = context.height;
-        common.rectSize[0] = context.width;
-        common.rectSize[1] = context.height;
-        common.rectSizePrev[0] = context.width;
-        common.rectSizePrev[1] = context.height;
+        common.rectSize[0] = static_cast<uint16_t>(frame->width);
+        common.rectSize[1] = static_cast<uint16_t>(frame->height);
+        common.rectSizePrev[0] = static_cast<uint16_t>(frame->previous_width);
+        common.rectSizePrev[1] = static_cast<uint16_t>(frame->previous_height);
         common.denoisingRange = frame->denoising_range;
         common.frameIndex = frame->frame_index;
         common.accumulationMode = frame->reset ? nrd::AccumulationMode::RESTART : nrd::AccumulationMode::CONTINUE;

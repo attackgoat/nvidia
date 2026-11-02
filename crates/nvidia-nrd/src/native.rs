@@ -1,12 +1,12 @@
-#[cfg(feature = "vk-graph")]
-use vk_graph::driver::device::Device;
-
 use {
-    crate::{Frame, Resources},
+    crate::{Frame, Resources, validate_rectangles},
     anyhow::Context as _,
     ash::vk::{self, Handle as _},
     std::{ffi::c_void, ptr::NonNull, sync::Mutex},
 };
+
+#[cfg(feature = "vk-graph")]
+use vk_graph::driver::device::Device;
 
 static API_LOCK: Mutex<()> = Mutex::new(());
 
@@ -165,6 +165,11 @@ impl Nrd {
         resources: &Resources,
     ) -> anyhow::Result<()> {
         resources.validate_layouts()?;
+        validate_rectangles(
+            [frame.resource_width, frame.resource_height],
+            [frame.width, frame.height],
+            [frame.previous_width, frame.previous_height],
+        )?;
 
         let context = self.context.context("nrd has been shut down")?;
         let _guard = API_LOCK

@@ -26,6 +26,8 @@ constexpr uint32_t kVkFormatR32Sfloat = 100;
 constexpr uint32_t kDlssRrQualityBalanced = 0;
 constexpr uint32_t kDlssRrQualityQuality = 1;
 constexpr uint32_t kDlssRrQualityDlaa = 2;
+constexpr uint32_t kDlssRrQualityPerformance = 3;
+constexpr uint32_t kDlssRrQualityUltraPerformance = 4;
 
 using NvidiaSlLogCallback = void (*)(int32_t type, const char* message);
 NvidiaSlLogCallback g_logCallback = nullptr;
@@ -243,7 +245,7 @@ void setIdentity(sl::float4x4& output) noexcept
 
 bool validDlssRrQuality(uint32_t quality) noexcept
 {
-    return quality <= kDlssRrQualityDlaa;
+    return quality <= kDlssRrQualityUltraPerformance;
 }
 
 sl::DLSSMode dlssRrMode(uint32_t quality) noexcept
@@ -254,6 +256,10 @@ sl::DLSSMode dlssRrMode(uint32_t quality) noexcept
         return sl::DLSSMode::eMaxQuality;
     case kDlssRrQualityDlaa:
         return sl::DLSSMode::eDLAA;
+    case kDlssRrQualityPerformance:
+        return sl::DLSSMode::eMaxPerformance;
+    case kDlssRrQualityUltraPerformance:
+        return sl::DLSSMode::eUltraPerformance;
     default:
         return sl::DLSSMode::eBalanced;
     }

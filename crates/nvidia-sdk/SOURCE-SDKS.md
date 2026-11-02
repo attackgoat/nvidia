@@ -62,7 +62,7 @@ retaining their licenses.
 | --- | --- | --- |
 | `deps/nri` | https://github.com/NVIDIA-RTX/NRI | `v179` |
 | `deps/shadermake` | https://github.com/NVIDIA-RTX/ShaderMake | `18f5a344e7ca8fa65daaf079d07bc8ce38453e05` |
-| `deps/mathlib` | https://github.com/NVIDIA-RTX/MathLib | `v11` |
+| `deps/mathlib` | https://github.com/NVIDIA-RTX/MathLib | `e3eee9362880b708a315b9946df51dae332bb46f` (`v11`) |
 | `deps/vulkan-headers` | https://github.com/KhronosGroup/Vulkan-Headers | `v1.4.349` |
 | `deps/vma` | https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator | `b3cbbb43ea3a506dffe10759e205a41c27c35ae2` |
 | `deps/sse2neon` | https://github.com/DLTcollab/sse2neon | `13a42df35dc7fcc94f987568e7274a998bb6cc86` |

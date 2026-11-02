@@ -90,6 +90,8 @@ pub enum DlssRrQuality {
     Quality = 1,
     /// Native-resolution anti-aliasing; render and output dimensions must be equal.
     Dlaa = 2,
+    Performance = 3,
+    UltraPerformance = 4,
 }
 
 /// Images for NGX evaluation. All inputs, including depth and the reflection guide,
@@ -567,6 +569,8 @@ mod tests {
         assert_eq!(DlssRrQuality::Balanced as u32, 0);
         assert_eq!(DlssRrQuality::Quality as u32, 1);
         assert_eq!(DlssRrQuality::Dlaa as u32, 2);
+        assert_eq!(DlssRrQuality::Performance as u32, 3);
+        assert_eq!(DlssRrQuality::UltraPerformance as u32, 4);
 
         assert_eq!(size_of::<VulkanImage>(), 64);
         assert_eq!(align_of::<VulkanImage>(), 8);

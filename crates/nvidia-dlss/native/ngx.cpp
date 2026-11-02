@@ -26,6 +26,8 @@ constexpr uint32_t kSpecularHitDistance = 1;
 constexpr uint32_t kDlssRrQualityBalanced = 0;
 constexpr uint32_t kDlssRrQualityQuality = 1;
 constexpr uint32_t kDlssRrQualityDlaa = 2;
+constexpr uint32_t kDlssRrQualityPerformance = 3;
+constexpr uint32_t kDlssRrQualityUltraPerformance = 4;
 
 struct NgxIdentity
 {
@@ -273,7 +275,7 @@ bool validReflectionGuide(const NgxDlssRrResources& resources)
 
 bool validDlssRrQuality(uint32_t quality)
 {
-    return quality <= kDlssRrQualityDlaa;
+    return quality <= kDlssRrQualityUltraPerformance;
 }
 
 NVSDK_NGX_PerfQuality_Value dlssRrQuality(uint32_t quality)
@@ -284,6 +286,10 @@ NVSDK_NGX_PerfQuality_Value dlssRrQuality(uint32_t quality)
         return NVSDK_NGX_PerfQuality_Value_MaxQuality;
     case kDlssRrQualityDlaa:
         return NVSDK_NGX_PerfQuality_Value_DLAA;
+    case kDlssRrQualityPerformance:
+        return NVSDK_NGX_PerfQuality_Value_MaxPerf;
+    case kDlssRrQualityUltraPerformance:
+        return NVSDK_NGX_PerfQuality_Value_UltraPerformance;
     default:
         return NVSDK_NGX_PerfQuality_Value_Balanced;
     }
@@ -351,6 +357,14 @@ NVSDK_NGX_Result ensureFeature(
         NVSDK_NGX_RayReconstruction_Hint_Render_Preset_E);
 
     NVSDK_NGX_DLSSD_Create_Params create{};
+    NVSDK_NGX_Parameter_SetUI(
+        context->parameters,
+        NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_Performance,
+        NVSDK_NGX_RayReconstruction_Hint_Render_Preset_E);
+    NVSDK_NGX_Parameter_SetUI(
+        context->parameters,
+        NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_UltraPerformance,
+        NVSDK_NGX_RayReconstruction_Hint_Render_Preset_E);
     create.InDenoiseMode = NVSDK_NGX_DLSS_Denoise_Mode_DLUnified;
     create.InRoughnessMode = NVSDK_NGX_DLSS_Roughness_Mode_Packed;
     create.InUseHWDepth = context->config.depth == 2
