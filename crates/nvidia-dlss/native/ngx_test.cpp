@@ -38,6 +38,14 @@ static unsigned expectedGuide;
 static int expectedQuality;
 static unsigned evaluations;
 static unsigned creations;
+static unsigned releases;
+static unsigned parameterAllocations;
+static unsigned parameterReleases;
+static unsigned expectedWidth = 64;
+static unsigned expectedHeight = 32;
+static unsigned expectedOutputWidth = 128;
+static unsigned expectedOutputHeight = 64;
+static const NVSDK_NGX_Handle* evaluatedFeature;
 
 template<typename T>
 static T parameter(const NVSDK_NGX_Parameter* params, const char* name)
@@ -54,10 +62,10 @@ static NVSDK_NGX_Result captureCreation(
     assert(feature == NVSDK_NGX_Feature_RayReconstruction);
     assert(parameter<int>(params, NVSDK_NGX_Parameter_DLSS_Feature_Create_Flags) == expectedFlags);
     assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Use_HW_Depth) == expectedDepth);
-    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Width) == 64);
-    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Height) == 32);
-    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutWidth) == 128);
-    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutHeight) == 64);
+    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Width) == expectedWidth);
+    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_Height) == expectedHeight);
+    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutWidth) == expectedOutputWidth);
+    assert(parameter<unsigned>(params, NVSDK_NGX_Parameter_OutHeight) == expectedOutputHeight);
     assert(parameter<int>(params, NVSDK_NGX_Parameter_PerfQualityValue) == expectedQuality);
     for (const char* preset : {
              NVSDK_NGX_Parameter_RayReconstruction_Hint_Render_Preset_DLAA,
@@ -68,7 +76,7 @@ static NVSDK_NGX_Result captureCreation(
     {
         assert(parameter<unsigned>(params, preset) == NVSDK_NGX_RayReconstruction_Hint_Render_Preset_E);
     }
-    *handle = reinterpret_cast<NVSDK_NGX_Handle*>(2);
+    *handle = reinterpret_cast<NVSDK_NGX_Handle*>(static_cast<uintptr_t>(2 + creations));
     ++creations;
     return NVSDK_NGX_Result_Success;
 }
@@ -81,9 +89,10 @@ static NVSDK_NGX_Result captureCreation1(
 }
 
 static NVSDK_NGX_Result captureEvaluation(
-    VkCommandBuffer, const NVSDK_NGX_Handle*, const NVSDK_NGX_Parameter* params,
+    VkCommandBuffer, const NVSDK_NGX_Handle* feature, const NVSDK_NGX_Parameter* params,
     PFN_NVSDK_NGX_ProgressCallback_C)
 {
+    evaluatedFeature = feature;
     assert(parameter<float>(params, NVSDK_NGX_Parameter_MV_Scale_X) == expectedScale[0]);
     assert(parameter<float>(params, NVSDK_NGX_Parameter_MV_Scale_Y) == expectedScale[1]);
     auto* resource = static_cast<NVSDK_NGX_Resource_VK*>(parameter<void*>(params, NVSDK_NGX_Parameter_Depth));
@@ -100,13 +109,39 @@ static NVSDK_NGX_Result captureEvaluation(
     return NVSDK_NGX_Result_Success;
 }
 
+static NVSDK_NGX_Result captureRelease(NVSDK_NGX_Handle*)
+{
+    ++releases;
+    return NVSDK_NGX_Result_Success;
+}
+
+static NVSDK_NGX_Result captureParameters(NVSDK_NGX_Parameter** output)
+{
+    *output = new Parameters;
+    ++parameterAllocations;
+    return NVSDK_NGX_Result_Success;
+}
+
+static NVSDK_NGX_Result captureDestroyParameters(NVSDK_NGX_Parameter* parameters)
+{
+    delete static_cast<Parameters*>(parameters);
+    ++parameterReleases;
+    return NVSDK_NGX_Result_Success;
+}
+
 #define NVSDK_NGX_VULKAN_CreateFeature captureCreation
 #define NVSDK_NGX_VULKAN_CreateFeature1 captureCreation1
 #define NVSDK_NGX_VULKAN_EvaluateFeature_C captureEvaluation
+#define NVSDK_NGX_VULKAN_ReleaseFeature captureRelease
+#define NVSDK_NGX_VULKAN_GetCapabilityParameters captureParameters
+#define NVSDK_NGX_VULKAN_DestroyParameters captureDestroyParameters
 #include "ngx.cpp"
 #undef NVSDK_NGX_VULKAN_CreateFeature
 #undef NVSDK_NGX_VULKAN_CreateFeature1
 #undef NVSDK_NGX_VULKAN_EvaluateFeature_C
+#undef NVSDK_NGX_VULKAN_ReleaseFeature
+#undef NVSDK_NGX_VULKAN_GetCapabilityParameters
+#undef NVSDK_NGX_VULKAN_DestroyParameters
 
 int main()
 {
@@ -208,4 +243,75 @@ int main()
     assert(!validConfig({2, 0, 0}));
     assert(!validConfig({0, 2, 0}));
     assert(!validConfig({0, 0, 3}));
+
+    // Alternating view 1 must neither replace view 0's feature nor share its parameters.
+    Parameters primaryParameters;
+    NgxContext context(L"", L"", nullptr);
+    context.parameters = &primaryParameters;
+    context.config = {0, 0, 0};
+    expectedFlags = NVSDK_NGX_DLSS_Feature_Flags_IsHDR
+        | NVSDK_NGX_DLSS_Feature_Flags_MVLowRes | NVSDK_NGX_DLSS_Feature_Flags_DepthInverted;
+    expectedDepth = NVSDK_NGX_DLSS_Depth_Type_HW;
+    expectedQuality = NVSDK_NGX_PerfQuality_Value_Balanced;
+    expectedGuide = 0;
+    expectedScale[0] = expectedScale[1] = 1.0f;
+    NgxDlssRrResources resources{image, image, image, image, image, image, image, image, kSpecularMotion, 0};
+    resources.outputColor.width = 128;
+    resources.outputColor.height = 64;
+    resources.outputColor.usage = VK_IMAGE_USAGE_STORAGE_BIT;
+    resources.outputColor.state = VK_IMAGE_LAYOUT_GENERAL;
+    resources.depth.format = VK_FORMAT_D32_SFLOAT;
+    resources.depth.subresourceRange = {VK_IMAGE_ASPECT_DEPTH_BIT, 2, 1, 3, 2};
+    NgxFrameConstants frame{};
+    auto evaluateView = [&](unsigned view) {
+        return nvidia_dlss_ngx_evaluate_view(&context, view, reinterpret_cast<VkCommandBuffer>(3),
+            kDlssRrQualityBalanced, &frame, &resources);
+    };
+    assert(evaluateView(0) == 0);
+    auto* primary = context.feature;
+    assert(evaluateView(1) == 0);
+    auto* secondary = context.views[1]->feature;
+    assert(primary != secondary);
+    assert(context.views[1]->parameters != context.parameters);
+    assert(evaluatedFeature == secondary);
+    const auto beforeAlternation = creations;
+    assert(evaluateView(0) == 0 && evaluatedFeature == primary);
+    assert(evaluateView(1) == 0 && evaluatedFeature == secondary);
+    assert(creations == beforeAlternation);
+    for (auto* input : {&resources.inputColor, &resources.depth, &resources.motion,
+             &resources.diffuseAlbedo, &resources.specularAlbedo,
+             &resources.normalRoughness, &resources.reflectionGuide})
+    {
+        input->width = 96;
+        input->height = 48;
+    }
+    resources.outputColor.width = expectedOutputWidth = 192;
+    resources.outputColor.height = expectedOutputHeight = 96;
+    expectedWidth = 96;
+    expectedHeight = 48;
+    assert(evaluateView(1) == 0);
+    assert(context.views[1]->feature != secondary);
+    assert(context.feature == primary && releases == 1);
+    assert(context.renderWidth == 64 && context.views[1]->renderWidth == 96);
+    for (auto* input : {&resources.inputColor, &resources.depth, &resources.motion,
+             &resources.diffuseAlbedo, &resources.specularAlbedo,
+             &resources.normalRoughness, &resources.reflectionGuide})
+    {
+        input->width = 64;
+        input->height = 32;
+    }
+    resources.outputColor.width = expectedOutputWidth = 128;
+    resources.outputColor.height = expectedOutputHeight = 64;
+    expectedWidth = 64;
+    expectedHeight = 32;
+    assert(evaluateView(0) == 0 && evaluatedFeature == primary);
+    assert(creations == beforeAlternation + 1);
+    assert(nvidia_dlss_ngx_release_view(&context, 1) == 0);
+    assert(context.feature == primary && context.views[1] == nullptr);
+    assert(parameterAllocations == 1 && parameterReleases == 1 && releases == 2);
+    assert(evaluateView(0) == 0 && evaluatedFeature == primary);
+    assert(evaluateView(2) == kInvalidArgument);
+    assert(nvidia_dlss_ngx_release_view(&context, 2) == kInvalidArgument);
+    assert(nvidia_dlss_ngx_release_view(&context, 1) == 0 && releases == 2);
+    assert(nvidia_dlss_ngx_release_view(&context, 0) == 0 && releases == 3);
 }

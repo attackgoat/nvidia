@@ -53,6 +53,31 @@ impl Evaluator {
     }
 
     /// # Safety
+    /// Follow [`Self::evaluate`]'s resource and synchronization requirements.
+    ///
+    /// # Errors
+    /// Always returns an error because the native backend is unavailable.
+    pub unsafe fn evaluate_in_view(
+        &self,
+        _view: u32,
+        _command_buffer: vk::CommandBuffer,
+        _frame: &DlssRrFrameConstants,
+        _resources: &DlssRrResources,
+        _quality: DlssRrQuality,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!("ngx is available only on x86_64-unknown-linux-gnu")
+    }
+
+    /// # Safety
+    /// Complete all GPU work for this view before releasing it.
+    ///
+    /// # Errors
+    /// This stub is a successful no-op.
+    pub unsafe fn release_view(&self, _view: u32) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// # Safety
     ///
     /// All NGX GPU work must have completed before shutdown.
     ///

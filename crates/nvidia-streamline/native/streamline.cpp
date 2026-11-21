@@ -199,6 +199,7 @@ struct NvidiaSlContext
     PFun_slSetTagForFrame* setTagForFrame = nullptr;
     PFun_slDLSSDGetOptimalSettings* dlssdGetOptimalSettings = nullptr;
     PFun_slDLSSDSetOptions* dlssdSetOptions = nullptr;
+    bool views[2]{};
 };
 
 namespace
@@ -450,8 +451,9 @@ extern "C" int32_t nvidia_sl_dlss_rr_optimal_settings(
     });
 }
 
-extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
+extern "C" int32_t nvidia_sl_evaluate_dlss_rr_view(
     NvidiaSlContext* context,
+    uint32_t view,
     void* commandBuffer,
     uint32_t quality,
     const NvidiaSlFrameConstants* frame,
@@ -460,7 +462,7 @@ extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
     return ffiBoundary([&]() -> int32_t {
         if (context == nullptr || commandBuffer == nullptr || frame == nullptr || resources == nullptr)
             return kInvalidArgument;
-        if (!validDlssRrQuality(quality))
+        if (!validDlssRrQuality(quality) || view >= 2)
             return kInvalidArgument;
         if (!validImage(resources->inputColor)
             || !validImage(resources->outputColor)
@@ -483,7 +485,7 @@ extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
         if (result != sl::Result::eOk || token == nullptr)
             return result == sl::Result::eOk ? kInvalidArgument : static_cast<int32_t>(result);
 
-        const sl::ViewportHandle viewport(0u);
+        const sl::ViewportHandle viewport(view);
         sl::Constants constants{};
         copyMatrix(constants.cameraViewToClip, frame->cameraViewToClip);
         copyMatrix(constants.clipToCameraView, frame->clipToCameraView);
@@ -527,6 +529,7 @@ extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
             quality);
         copyMatrix(options.worldToCameraView, frame->worldToCameraView);
         copyMatrix(options.cameraViewToWorld, frame->cameraViewToWorld);
+        context->views[view] = true;
         result = context->dlssdSetOptions(viewport, options);
         if (result != sl::Result::eOk)
             return static_cast<int32_t>(result);
@@ -584,6 +587,32 @@ extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
     });
 }
 
+extern "C" int32_t nvidia_sl_evaluate_dlss_rr(
+    NvidiaSlContext* context,
+    void* commandBuffer,
+    uint32_t quality,
+    const NvidiaSlFrameConstants* frame,
+    const NvidiaSlDlssRrResources* resources) noexcept
+{
+    return nvidia_sl_evaluate_dlss_rr_view(
+        context, 0, commandBuffer, quality, frame, resources);
+}
+
+extern "C" int32_t nvidia_sl_release_dlss_rr_view(
+    NvidiaSlContext* context, uint32_t view) noexcept
+{
+    return ffiBoundary([&]() -> int32_t {
+        if (context == nullptr || view >= 2)
+            return kInvalidArgument;
+        if (!context->views[view])
+            return static_cast<int32_t>(sl::Result::eOk);
+        const auto result = context->freeResources(sl::kFeatureDLSS_RR, sl::ViewportHandle(view));
+        if (result == sl::Result::eOk)
+            context->views[view] = false;
+        return static_cast<int32_t>(result);
+    });
+}
+
 extern "C" int32_t nvidia_sl_shutdown(NvidiaSlContext* context) noexcept
 {
     if (context == nullptr)
@@ -594,8 +623,12 @@ extern "C" int32_t nvidia_sl_shutdown(NvidiaSlContext* context) noexcept
     {
         if (context->dlssdGetOptimalSettings != nullptr)
         {
-            const sl::ViewportHandle viewport(0u);
-            context->freeResources(sl::kFeatureDLSS_RR, viewport);
+            for (uint32_t view = 0; view < 2; ++view)
+            {
+                const auto releaseResult = nvidia_sl_release_dlss_rr_view(context, view);
+                if (result == static_cast<int32_t>(sl::Result::eOk))
+                    result = releaseResult;
+            }
         }
     }
     catch (const std::bad_alloc&)

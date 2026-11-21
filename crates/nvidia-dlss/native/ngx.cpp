@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <array>
 #include <cstring>
 #include <filesystem>
 #include <memory>
@@ -200,6 +201,8 @@ struct NgxContext
     uint32_t outputWidth{};
     uint32_t outputHeight{};
     uint32_t quality{};
+    // One runtime/device, two independently allocated feature histories.
+    std::array<std::unique_ptr<NgxContext>, 2> views{};
 
     NgxContext(std::wstring dataPath, std::wstring featurePath, VkDevice deviceHandle)
         : applicationDataPath(std::move(dataPath))
@@ -689,6 +692,61 @@ extern "C" int32_t nvidia_dlss_ngx_evaluate(
     });
 }
 
+extern "C" int32_t nvidia_dlss_ngx_evaluate_view(
+    NgxContext* context,
+    uint32_t view,
+    VkCommandBuffer commandBuffer,
+    uint32_t quality,
+    const NgxFrameConstants* frame,
+    const NgxDlssRrResources* resources) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr || view >= context->views.size())
+            return kInvalidArgument;
+        if (view == 0)
+            return nvidia_dlss_ngx_evaluate(context, commandBuffer, quality, frame, resources);
+        if (!context->views[view])
+        {
+            auto child = std::make_unique<NgxContext>(L"", L"", context->device);
+            child->config = context->config;
+            const auto result = NVSDK_NGX_VULKAN_GetCapabilityParameters(&child->parameters);
+            if (result != NVSDK_NGX_Result_Success)
+            {
+                if (child->parameters != nullptr)
+                    NVSDK_NGX_VULKAN_DestroyParameters(child->parameters);
+                return resultCode(result);
+            }
+            context->views[view] = std::move(child);
+        }
+        return nvidia_dlss_ngx_evaluate(
+            context->views[view].get(), commandBuffer, quality, frame, resources);
+    });
+}
+
+// The caller completes GPU work before releasing a view or changing its feature dimensions.
+extern "C" int32_t nvidia_dlss_ngx_release_view(NgxContext* context, uint32_t view) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr || view >= context->views.size())
+            return kInvalidArgument;
+        auto* feature = view == 0 ? context : context->views[view].get();
+        if (feature == nullptr)
+            return 0;
+        auto result = releaseFeature(feature);
+        if (result != NVSDK_NGX_Result_Success || view == 0)
+            return resultCode(result);
+        if (feature->parameters != nullptr)
+        {
+            result = NVSDK_NGX_VULKAN_DestroyParameters(feature->parameters);
+            if (result != NVSDK_NGX_Result_Success)
+                return resultCode(result);
+            feature->parameters = nullptr;
+        }
+        context->views[view].reset();
+        return 0;
+    });
+}
+
 extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
 {
     return guarded([&]() {
@@ -696,6 +754,7 @@ extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
             return kInvalidArgument;
 
         std::unique_ptr<NgxContext> owned(context);
+        const auto secondaryResult = nvidia_dlss_ngx_release_view(context, 1);
         NVSDK_NGX_Result result = releaseFeature(context);
         if (context->parameters != nullptr)
         {
@@ -708,7 +767,7 @@ extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
         const NVSDK_NGX_Result shutdownResult = NVSDK_NGX_VULKAN_Shutdown1(context->device);
         if (result == NVSDK_NGX_Result_Success)
             result = shutdownResult;
-        return resultCode(result);
+        return secondaryResult != 0 ? secondaryResult : resultCode(result);
     });
 }
 

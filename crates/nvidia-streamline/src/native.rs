@@ -200,6 +200,18 @@ impl Context {
         resources: &DlssRrResources,
         quality: DlssRrQuality,
     ) -> Result<()> {
+        unsafe { self.evaluate_dlss_rr_in_view(0, command_buffer, frame, resources, quality) }
+    }
+
+    pub(crate) unsafe fn evaluate_dlss_rr_in_view(
+        &self,
+        view: u32,
+        command_buffer: vk::CommandBuffer,
+        frame: &DlssRrFrameConstants,
+        resources: &DlssRrResources,
+        quality: DlssRrQuality,
+    ) -> Result<()> {
+        ensure!(view < 2, "invalid dlss view");
         ensure!(
             command_buffer != vk::CommandBuffer::null(),
             "command buffer must not be null"
@@ -211,8 +223,9 @@ impl Context {
             .context("context for streamline has already been shut down")?;
 
         let result = unsafe {
-            ffi::nvidia_sl_evaluate_dlss_rr(
+            ffi::nvidia_sl_evaluate_dlss_rr_view(
                 raw.as_ptr(),
+                view,
                 command_buffer.as_raw() as *mut c_void,
                 quality as u32,
                 std::ptr::from_ref(frame),
@@ -221,6 +234,17 @@ impl Context {
         };
 
         ensure_result("evaluating dlss ray reconstruction", result)
+    }
+
+    pub(crate) unsafe fn release_dlss_rr_view(&self, view: u32) -> Result<()> {
+        ensure!(view < 2, "invalid dlss view");
+        let _guard = lock_api();
+        let raw = self
+            .raw()
+            .context("context for streamline has already been shut down")?;
+        ensure_result("releasing dlss view", unsafe {
+            ffi::nvidia_sl_release_dlss_rr_view(raw.as_ptr(), view)
+        })
     }
 
     pub(crate) fn is_active(&self) -> bool {

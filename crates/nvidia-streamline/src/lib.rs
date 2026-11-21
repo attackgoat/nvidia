@@ -134,6 +134,41 @@ impl Evaluator {
         }
     }
 
+    /// Evaluates one of two isolated viewport histories on the shared runtime/device.
+    ///
+    /// # Safety
+    /// Follow [`Self::evaluate_dlss_rr`]'s requirements. Views 0 and 1 retain independent
+    /// resources and history. Complete a view's prior GPU work before changing its dimensions
+    /// or quality. Use globally ordered frame tokens, independently of per-view sample indices.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid view or a backend failure.
+    pub unsafe fn evaluate_dlss_rr_in_view(
+        &self,
+        view: u32,
+        command_buffer: vk::CommandBuffer,
+        frame: &DlssRrFrameConstants,
+        resources: &DlssRrResources,
+        quality: DlssRrQuality,
+    ) -> Result<()> {
+        unsafe {
+            self.context
+                .evaluate_dlss_rr_in_view(view, command_buffer, frame, resources, quality)
+        }
+    }
+
+    /// Releases one viewport without shutting down the shared runtime.
+    ///
+    /// # Safety
+    /// Complete all GPU work for this view and permanently discard unsubmitted recordings.
+    /// No evaluation may race release.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid view or SDK release failure.
+    pub unsafe fn release_dlss_rr_view(&self, view: u32) -> Result<()> {
+        unsafe { self.context.release_dlss_rr_view(view) }
+    }
+
     /// # Safety
     ///
     /// All Streamline GPU work must have completed before shutdown.

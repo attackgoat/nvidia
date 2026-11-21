@@ -35,13 +35,15 @@ unsafe extern "C" {
         quality: u32,
         output: *mut Extent,
     ) -> i32;
-    pub(crate) fn nvidia_sl_evaluate_dlss_rr(
+    pub(crate) fn nvidia_sl_evaluate_dlss_rr_view(
         context: *mut Context,
+        view: u32,
         command_buffer: *mut c_void,
         quality: u32,
         frame: *const DlssRrFrameConstants,
         resources: *const DlssRrResources,
     ) -> i32;
+    pub(crate) fn nvidia_sl_release_dlss_rr_view(context: *mut Context, view: u32) -> i32;
     pub(crate) fn nvidia_sl_shutdown(context: *mut Context) -> i32;
     pub(crate) fn nvidia_sl_result_name(result: i32) -> *const c_char;
 }

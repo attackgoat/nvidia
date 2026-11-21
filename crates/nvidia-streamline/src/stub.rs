@@ -41,6 +41,21 @@ impl Context {
         bail!("native streamline is unavailable on this target")
     }
 
+    pub(crate) unsafe fn evaluate_dlss_rr_in_view(
+        &self,
+        _view: u32,
+        _command_buffer: vk::CommandBuffer,
+        _frame: &DlssRrFrameConstants,
+        _resources: &DlssRrResources,
+        _quality: DlssRrQuality,
+    ) -> Result<()> {
+        bail!("native streamline is unavailable on this target")
+    }
+
+    pub(crate) unsafe fn release_dlss_rr_view(&self, _view: u32) -> Result<()> {
+        bail!("native streamline is unavailable on this target")
+    }
+
     #[expect(
         clippy::unnecessary_wraps,
         reason = "matches the fallible native backend while preserving no-op shutdown"

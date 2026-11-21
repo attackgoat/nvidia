@@ -14,6 +14,10 @@ the actual parameters set by the SDK. Tests cover all 12 convention combinations
 both reflection guides, effective per-axis zero-to-unity motion scaling (including
 negative zero), view ranges, usage/layout validation and dimension rejection before
 feature creation or evaluation.
+It also alternates two feature histories with distinct parameter ownership,
+changes the secondary extent without replacing the primary feature, and checks
+independent release, repeated release and invalid view indices. These are mocked
+GPU-entrypoint checks, not evidence of live SDK coexistence or GPU memory usage.
 Compile without `NDEBUG` so assertions remain enabled.
 
 ## Configuration and Contracts

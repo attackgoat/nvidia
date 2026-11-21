@@ -99,6 +99,27 @@ impl Evaluator {
         resources: &DlssRrResources,
         quality: DlssRrQuality,
     ) -> anyhow::Result<()> {
+        unsafe { self.evaluate_in_view(0, command_buffer, frame, resources, quality) }
+    }
+
+    /// Records against one of two independent feature histories on the same NGX runtime.
+    ///
+    /// # Safety
+    /// Follow [`Self::evaluate`]'s resource and synchronization requirements. Dimensions and
+    /// quality may change only after earlier GPU work for this view has completed. View indices
+    /// are 0 (the default feature) and 1; neither view may race release or runtime shutdown.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid view, resource declaration, or SDK failure.
+    pub unsafe fn evaluate_in_view(
+        &self,
+        view: u32,
+        command_buffer: vk::CommandBuffer,
+        frame: &DlssRrFrameConstants,
+        resources: &DlssRrResources,
+        quality: DlssRrQuality,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(view < 2, "invalid dlss view");
         anyhow::ensure!(
             command_buffer != vk::CommandBuffer::null(),
             "null vulkan command buffer"
@@ -120,8 +141,9 @@ impl Evaluator {
         anyhow::ensure!(!context.is_null(), "ngx evaluator has been shut down");
 
         let result = unsafe {
-            nvidia_dlss_ngx_evaluate(
+            nvidia_dlss_ngx_evaluate_view(
                 context,
+                view,
                 usize::try_from(command_buffer.as_raw())? as *mut c_void,
                 quality as u32,
                 frame,
@@ -130,6 +152,25 @@ impl Evaluator {
         };
 
         check_result(result).context("evaluating ngx dlss-rr")
+    }
+
+    /// Releases a feature without shutting down the shared runtime or the other view.
+    ///
+    /// # Safety
+    /// All GPU work for this view must have completed. No recorded command buffer referencing
+    /// its feature may subsequently be submitted. Serialize release with evaluation.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid view, a shut-down runtime, or SDK release failure.
+    pub unsafe fn release_view(&self, view: u32) -> anyhow::Result<()> {
+        anyhow::ensure!(view < 2, "invalid dlss view");
+        let _guard = API_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let context = self.inner.context.load(Ordering::SeqCst);
+        anyhow::ensure!(!context.is_null(), "ngx evaluator has been shut down");
+        check_result(unsafe { nvidia_dlss_ngx_release_view(context, view) })
+            .context("releasing ngx view")
     }
 
     /// # Safety
@@ -263,13 +304,15 @@ unsafe extern "C" {
         quality: u32,
         output: *mut NativeExtent,
     ) -> i32;
-    fn nvidia_dlss_ngx_evaluate(
+    fn nvidia_dlss_ngx_evaluate_view(
         context: *mut NativeContext,
+        view: u32,
         command_buffer: *mut c_void,
         quality: u32,
         frame: *const DlssRrFrameConstants,
         resources: *const NativeDlssRrResources,
     ) -> i32;
+    fn nvidia_dlss_ngx_release_view(context: *mut NativeContext, view: u32) -> i32;
     fn nvidia_dlss_ngx_shutdown(context: *mut NativeContext) -> i32;
     fn nvidia_dlss_ngx_result_name(result: i32) -> *const c_char;
 }
