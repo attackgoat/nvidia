@@ -81,16 +81,16 @@ Use this crates.io configuration for graph-free Vulkan integration:
 
 ```toml
 [dependencies]
-nvidia-dlss = { version = "0.1.0", default-features = false, features = ["dlss-release-runtime"] }
-nvidia-nrd = { version = "0.1.1", default-features = false, features = ["native"] }
-nvidia-streamline = { version = "0.1.0", default-features = false }
+nvidia-dlss = { version = "0.2.0", default-features = false, features = ["dlss-release-runtime"] }
+nvidia-nrd = { version = "0.2.0", default-features = false, features = ["native"] }
+nvidia-streamline = { version = "0.2.0", default-features = false }
 ```
 
 Omit `default-features = false` to use the default `vk-graph` adapters.
 
 For the CPU baker, use
-`nvidia-omm = { version = "0.1.0", features = ["native"] }`.
-For SDK acquisition alone, use `nvidia-sdk = "0.1.0"`.
+`nvidia-omm = { version = "0.1.1", features = ["native"] }`.
+For SDK acquisition alone, use `nvidia-sdk = "0.1.1"`.
 
 ### Raw Vulkan APIs
 

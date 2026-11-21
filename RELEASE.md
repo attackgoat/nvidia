@@ -130,8 +130,6 @@ following gates in order.
 - [ ] Have the manifest owners confirm publishable metadata, licenses/notices,
   package includes, docs.rs metadata, and versioned path dependencies on
   `nvidia-sdk`. Do not edit manifests implicitly.
-- [ ] Ensure all vk-graph dependencies use crates.io **0.14.7**. Do not use a git
-  branch, local patch, or sibling checkout.
 - [ ] Review `git status --short` and `git diff`. Release verification requires a
   reviewed clean checkout. Do not bypass this with `--allow-dirty`.
 - [ ] Inspect package contents in dependency order:

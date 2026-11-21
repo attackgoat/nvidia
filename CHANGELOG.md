@@ -7,7 +7,7 @@ This changelog covers SDK acquisition and staging. Integration release notes:
 - [nvidia-omm](https://github.com/attackgoat/nvidia/blob/main/crates/nvidia-omm/CHANGELOG.md)
 - [nvidia-streamline](https://github.com/attackgoat/nvidia/blob/main/crates/nvidia-streamline/CHANGELOG.md)
 
-## Unreleased
+## 0.1.1 (Unreleased)
 
 - Update DLSS SDK to `310.9.16`.
 - Update Streamline SDK to `2.14.16`.

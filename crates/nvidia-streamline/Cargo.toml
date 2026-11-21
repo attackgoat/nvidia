@@ -34,7 +34,7 @@ ash = { version = "0.38", default-features = false, features = ["loaded"] }
 [build-dependencies]
 cc = "1.2"
 dunce = "1.0"
-nvidia-sdk = { version = "0.1.0", path = "../nvidia-sdk" }
+nvidia-sdk = { version = "0.1.1", path = "../nvidia-sdk" }
 
 [lints]
 workspace = true

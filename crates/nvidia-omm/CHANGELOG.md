@@ -1,6 +1,6 @@
 # nvidia-omm Changelog
 
-## Unreleased
+## 0.1.1 (Unreleased)
 
 - Update OMM SDK to `1.10.0`.
 

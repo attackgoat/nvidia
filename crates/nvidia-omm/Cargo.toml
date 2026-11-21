@@ -27,7 +27,7 @@ anyhow.workspace = true
 [build-dependencies]
 cc = "1.2"
 dunce = "1"
-nvidia-sdk = { version = "0.1.0", path = "../nvidia-sdk" }
+nvidia-sdk = { version = "0.1.1", path = "../nvidia-sdk" }
 
 [lints]
 workspace = true
