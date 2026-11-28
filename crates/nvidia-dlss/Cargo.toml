@@ -8,7 +8,7 @@ readme.workspace = true
 repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/nvidia-dlss"
-description = "Vulkan bindings for NVIDIA DLSS Ray Reconstruction through NGX"
+description = "Vulkan bindings for NVIDIA DLSS Ray Reconstruction and Frame Generation through NGX"
 build = "build.rs"
 
 [package.metadata.docs.rs]

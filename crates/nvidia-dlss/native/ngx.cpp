@@ -5,6 +5,7 @@
 #include <array>
 #include <cstring>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <new>
 #include <string>
@@ -13,6 +14,7 @@
 #include <nvsdk_ngx_helpers_vk.h>
 #include <nvsdk_ngx_helpers_dlssd_d3d.h>
 #include <nvsdk_ngx_helpers_dlssd_vk.h>
+#include <nvsdk_ngx_helpers_dlssg_vk.h>
 
 namespace
 {
@@ -113,6 +115,35 @@ struct NgxFrameConstants
     uint32_t reset;
 };
 
+struct NgxDlssFgConfig
+{
+    uint32_t outputExtent[2];
+    uint32_t guideExtent[2];
+    uint32_t colorFormat;
+};
+
+struct NgxDlssFgResources
+{
+    NgxVkImage realColor;
+    NgxVkImage hudlessColor;
+    NgxVkImage uiColor;
+    NgxVkImage depth;
+    NgxVkImage motion;
+    NgxVkImage generatedColor;
+    uint64_t suppression;
+};
+
+struct NgxDlssFgFeature
+{
+    NVSDK_NGX_Handle* handle{};
+    NVSDK_NGX_Parameter* parameters{};
+};
+
+static_assert(sizeof(NgxDlssFgConfig) == 20);
+static_assert(offsetof(NgxDlssFgConfig, colorFormat) == 16);
+static_assert(sizeof(NgxDlssFgResources) == 392);
+static_assert(offsetof(NgxDlssFgResources, suppression) == 384);
+
 static_assert(sizeof(NgxIdentity) == 24);
 static_assert(sizeof(NgxExtensions) == 4 + 32 * VK_MAX_EXTENSION_NAME_SIZE);
 static_assert(sizeof(NgxVkImage) == 64);
@@ -171,7 +202,8 @@ struct DiscoveryInfo
     DiscoveryInfo(
         const NgxIdentity& identity,
         const char* applicationDataPathUtf8,
-        const char* runtimePathUtf8)
+        const char* runtimePathUtf8,
+        bool frameGeneration)
         : applicationDataPath(std::filesystem::u8path(applicationDataPathUtf8).wstring())
         , runtimePath(std::filesystem::u8path(runtimePathUtf8).wstring())
     {
@@ -179,7 +211,8 @@ struct DiscoveryInfo
         common.PathListInfo.Path = paths;
         common.PathListInfo.Length = 1;
         discovery.SDKVersion = NVSDK_NGX_Version_API;
-        discovery.FeatureID = NVSDK_NGX_Feature_RayReconstruction;
+        discovery.FeatureID = frameGeneration
+            ? NVSDK_NGX_Feature_FrameGeneration : NVSDK_NGX_Feature_RayReconstruction;
         setIdentifier(discovery.Identifier, identity);
         discovery.ApplicationDataPath = applicationDataPath.c_str();
         discovery.FeatureInfo = &common;
@@ -203,6 +236,7 @@ struct NgxContext
     uint32_t quality{};
     // One runtime/device, two independently allocated feature histories.
     std::array<std::unique_ptr<NgxContext>, 2> views{};
+    NgxDlssFgFeature frameGeneration{};
 
     NgxContext(std::wstring dataPath, std::wstring featurePath, VkDevice deviceHandle)
         : applicationDataPath(std::move(dataPath))
@@ -310,6 +344,25 @@ NVSDK_NGX_Resource_VK ngxResource(const NgxVkImage& image, bool readWrite)
         readWrite);
 }
 
+NVSDK_NGX_Result releaseFrameGeneration(NgxDlssFgFeature& feature)
+{
+    if (feature.handle != nullptr)
+    {
+        const auto result = NVSDK_NGX_VULKAN_ReleaseFeature(feature.handle);
+        if (result != NVSDK_NGX_Result_Success)
+            return result;
+        feature.handle = nullptr;
+    }
+    if (feature.parameters != nullptr)
+    {
+        const auto result = NVSDK_NGX_VULKAN_DestroyParameters(feature.parameters);
+        if (result != NVSDK_NGX_Result_Success)
+            return result;
+        feature.parameters = nullptr;
+    }
+    return NVSDK_NGX_Result_Success;
+}
+
 NVSDK_NGX_Result releaseFeature(NgxContext* context)
 {
     if (context->feature == nullptr)
@@ -406,6 +459,7 @@ extern "C" int32_t nvidia_dlss_ngx_instance_extensions(
     const NgxIdentity* identity,
     const char* applicationDataPath,
     const char* runtimePath,
+    bool frameGeneration,
     NgxExtensions* output) noexcept
 {
     return guarded([&]() {
@@ -415,7 +469,7 @@ extern "C" int32_t nvidia_dlss_ngx_instance_extensions(
             return kInvalidArgument;
         }
 
-        DiscoveryInfo info(*identity, applicationDataPath, runtimePath);
+        DiscoveryInfo info(*identity, applicationDataPath, runtimePath, frameGeneration);
         uint32_t count = 0;
         VkExtensionProperties* properties = nullptr;
         const NVSDK_NGX_Result result =
@@ -435,6 +489,7 @@ extern "C" int32_t nvidia_dlss_ngx_device_extensions(
     const char* runtimePath,
     VkInstance instance,
     VkPhysicalDevice physicalDevice,
+    bool frameGeneration,
     NgxExtensions* output) noexcept
 {
     return guarded([&]() {
@@ -445,7 +500,7 @@ extern "C" int32_t nvidia_dlss_ngx_device_extensions(
             return kInvalidArgument;
         }
 
-        DiscoveryInfo info(*identity, applicationDataPath, runtimePath);
+        DiscoveryInfo info(*identity, applicationDataPath, runtimePath, frameGeneration);
         NVSDK_NGX_FeatureRequirement requirement{};
         NVSDK_NGX_Result result = NVSDK_NGX_VULKAN_GetFeatureRequirements(
             instance,
@@ -747,6 +802,148 @@ extern "C" int32_t nvidia_dlss_ngx_release_view(NgxContext* context, uint32_t vi
     });
 }
 
+extern "C" int32_t nvidia_dlss_ngx_fg_available(NgxContext* context, int32_t* available) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr || context->parameters == nullptr || available == nullptr)
+            return kInvalidArgument;
+
+        return resultCode(NVSDK_NGX_Parameter_GetI(
+            context->parameters, NVSDK_NGX_Parameter_FrameGeneration_Available, available));
+    });
+}
+
+extern "C" int32_t nvidia_dlss_ngx_fg_create(
+    NgxContext* context,
+    VkCommandBuffer commandBuffer,
+    const NgxDlssFgConfig* config) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr || commandBuffer == nullptr || config == nullptr)
+            return kInvalidArgument;
+
+        auto& feature = context->frameGeneration;
+        if (feature.handle != nullptr || feature.parameters != nullptr)
+            return resultCode(NVSDK_NGX_Result_FAIL_FeatureAlreadyExists);
+
+        int32_t available = 0;
+        const auto capability = nvidia_dlss_ngx_fg_available(context, &available);
+        if (capability != 0)
+            return capability;
+        if (!available)
+            return kFeatureUnsupported;
+
+        auto result = NVSDK_NGX_VULKAN_AllocateParameters(&feature.parameters);
+        if (result == NVSDK_NGX_Result_Success && feature.parameters != nullptr)
+        {
+            // The Vulkan helper only populates the output extent and format.
+            NVSDK_NGX_Parameter_SetUI(feature.parameters,
+                NVSDK_NGX_DLSSG_Parameter_InternalWidth, config->guideExtent[0]);
+            NVSDK_NGX_Parameter_SetUI(feature.parameters,
+                NVSDK_NGX_DLSSG_Parameter_InternalHeight, config->guideExtent[1]);
+            NVSDK_NGX_Parameter_SetUI(feature.parameters,
+                NVSDK_NGX_DLSSG_Parameter_DynamicResolution, 0);
+            NVSDK_NGX_Parameter_SetUI(feature.parameters,
+                NVSDK_NGX_DLSSG_Parameter_UserInterfaceRecompositionEnabled, 1);
+            NVSDK_NGX_Parameter_SetUI(feature.parameters,
+                NVSDK_NGX_DLSSG_Parameter_AsyncCreateEnabled, 0);
+
+            NVSDK_NGX_DLSSG_Create_Params create{};
+            create.Width = config->outputExtent[0];
+            create.Height = config->outputExtent[1];
+            create.NativeBackbufferFormat = config->colorFormat;
+            result = NGX_VK_CREATE_DLSSG(
+                commandBuffer, 1, 1, &feature.handle, feature.parameters, &create);
+            if (result == NVSDK_NGX_Result_Success && feature.handle != nullptr)
+                return 0;
+        }
+
+        // Failed creation may have partially recorded commands. The caller discards the buffer.
+        // No submitted work can reference this new feature.
+        releaseFrameGeneration(feature);
+        return resultCode(result == NVSDK_NGX_Result_Success
+            ? NVSDK_NGX_Result_FAIL_UnableToInitializeFeature : result);
+    });
+}
+
+extern "C" int32_t nvidia_dlss_ngx_fg_evaluate(
+    NgxContext* context,
+    VkCommandBuffer commandBuffer,
+    const NgxFrameConstants* frame,
+    const NgxDlssFgResources* resources) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr || commandBuffer == nullptr || frame == nullptr || resources == nullptr)
+            return kInvalidArgument;
+        auto& feature = context->frameGeneration;
+        if (feature.handle == nullptr || feature.parameters == nullptr)
+            return resultCode(NVSDK_NGX_Result_FAIL_FeatureNotFound);
+
+        auto real = ngxResource(resources->realColor, false);
+        auto hudless = ngxResource(resources->hudlessColor, false);
+        auto ui = ngxResource(resources->uiColor, false);
+        auto depth = ngxResource(resources->depth, false);
+        auto motion = ngxResource(resources->motion, false);
+        auto generated = ngxResource(resources->generatedColor, true);
+        // NGX writes the flag in byte 0 of a four-byte GPU buffer.
+        auto suppression = NVSDK_NGX_Create_Buffer_Resource_VK(
+            reinterpret_cast<VkBuffer>(static_cast<uintptr_t>(resources->suppression)), 4, true);
+
+        NVSDK_NGX_VK_DLSSG_Eval_Params evaluate{};
+        evaluate.pBackbuffer = &real;
+        evaluate.pHudless = &hudless;
+        evaluate.pUI = &ui;
+        evaluate.pDepth = &depth;
+        evaluate.pMVecs = &motion;
+        evaluate.pOutputInterpFrame = &generated;
+        evaluate.pOutputDisableInterpolation = &suppression;
+
+        NVSDK_NGX_DLSSG_Opt_Eval_Params options{};
+        std::memcpy(options.cameraViewToClip, frame->cameraViewToClip, sizeof(options.cameraViewToClip));
+        std::memcpy(options.clipToCameraView, frame->clipToCameraView, sizeof(options.clipToCameraView));
+        std::memcpy(options.clipToPrevClip, frame->clipToPrevClip, sizeof(options.clipToPrevClip));
+        std::memcpy(options.prevClipToClip, frame->prevClipToClip, sizeof(options.prevClipToClip));
+        for (size_t axis = 0; axis < 4; ++axis)
+            options.clipToLensClip[axis][axis] = 1.0f;
+        std::memcpy(options.jitterOffset, frame->jitterOffset, sizeof(options.jitterOffset));
+        for (size_t axis = 0; axis < 2; ++axis)
+            options.mvecScale[axis] = frame->mvecScale[axis] == 0.0f ? 1.0f : frame->mvecScale[axis];
+        std::memcpy(options.cameraPos, frame->cameraPos, sizeof(options.cameraPos));
+        std::memcpy(options.cameraUp, frame->cameraUp, sizeof(options.cameraUp));
+        std::memcpy(options.cameraRight, frame->cameraRight, sizeof(options.cameraRight));
+        std::memcpy(options.cameraFwd, frame->cameraForward, sizeof(options.cameraFwd));
+        options.cameraNear = frame->cameraNear;
+        options.cameraFar = frame->cameraFar;
+        options.cameraFOV = frame->cameraFov;
+        options.cameraAspectRatio = frame->cameraAspectRatio;
+        options.multiFrameCount = 1;
+        options.multiFrameIndex = 1;
+        options.depthInverted = true;
+        options.cameraMotionIncluded = true;
+        options.reset = frame->reset != 0;
+        // Zero represents stationary pixels, not an invalid-motion sentinel. The
+        // format of the motion texture cannot represent this finite sentinel.
+        options.motionVectorsInvalidValue = std::numeric_limits<float>::max();
+        options.mvecsSubrectSize = options.depthSubrectSize =
+            {resources->motion.width, resources->motion.height};
+        options.backbufferSubrectSize = options.hudLessSubrectSize = options.uiSubrectSize =
+            options.outputInterpSubrectSize = {resources->realColor.width, resources->realColor.height};
+        NVSDK_NGX_Parameter_SetUI(feature.parameters, NVSDK_NGX_DLSSG_Parameter_MvecJittered, 0);
+
+        return resultCode(NGX_VK_EVALUATE_DLSSG(
+            commandBuffer, feature.handle, feature.parameters, &evaluate, &options));
+    });
+}
+
+extern "C" int32_t nvidia_dlss_ngx_fg_release(NgxContext* context) noexcept
+{
+    return guarded([&]() {
+        if (context == nullptr)
+            return kInvalidArgument;
+        return resultCode(releaseFrameGeneration(context->frameGeneration));
+    });
+}
+
 extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
 {
     return guarded([&]() {
@@ -754,6 +951,7 @@ extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
             return kInvalidArgument;
 
         std::unique_ptr<NgxContext> owned(context);
+        const auto frameGenerationResult = nvidia_dlss_ngx_fg_release(context);
         const auto secondaryResult = nvidia_dlss_ngx_release_view(context, 1);
         NVSDK_NGX_Result result = releaseFeature(context);
         if (context->parameters != nullptr)
@@ -767,6 +965,8 @@ extern "C" int32_t nvidia_dlss_ngx_shutdown(NgxContext* context) noexcept
         const NVSDK_NGX_Result shutdownResult = NVSDK_NGX_VULKAN_Shutdown1(context->device);
         if (result == NVSDK_NGX_Result_Success)
             result = shutdownResult;
+        if (frameGenerationResult != 0)
+            return frameGenerationResult;
         return secondaryResult != 0 ? secondaryResult : resultCode(result);
     });
 }

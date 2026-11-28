@@ -8,7 +8,10 @@ use std::{
 
 const LFS_POINTER_PREFIX: &[u8] = b"version https://git-lfs.github.com/spec/v1";
 const NATIVE_TARGET: &str = "x86_64-unknown-linux-gnu";
-const RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.9.16";
+const RUNTIME_FILES: [&str; 2] = [
+    "libnvidia-ngx-dlssd.so.310.9.16",
+    "libnvidia-ngx-dlssg.so.310.9.16",
+];
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rustc-check-cfg=cfg(nvidia_dlss_native)");
@@ -60,13 +63,16 @@ fn configure_native() -> Result<(), Box<dyn Error>> {
         "nvsdk_ngx.h",
         "nvsdk_ngx_defs.h",
         "nvsdk_ngx_defs_dlssd.h",
+        "nvsdk_ngx_defs_dlssg.h",
         "nvsdk_ngx_defs_vk.h",
         "nvsdk_ngx_helpers.h",
         "nvsdk_ngx_helpers_dlssd_d3d.h",
         "nvsdk_ngx_helpers_dlssd_vk.h",
+        "nvsdk_ngx_helpers_dlssg_vk.h",
         "nvsdk_ngx_helpers_vk.h",
         "nvsdk_ngx_params.h",
         "nvsdk_ngx_params_dlssd.h",
+        "nvsdk_ngx_params_dlssg.h",
         "nvsdk_ngx_vk.h",
     ] {
         require_file(&include_dir.join(header), "dlss sdk header", None)?;
@@ -80,8 +86,12 @@ fn configure_native() -> Result<(), Box<dyn Error>> {
     } else {
         "dev"
     };
-    let runtime = library_dir.join(runtime_profile).join(RUNTIME_FILE);
-    require_file(&runtime, "dlssd runtime", Some(1024))?;
+    let runtime_source_dir = library_dir.join(runtime_profile);
+    let runtime_sources = RUNTIME_FILES.map(|name| runtime_source_dir.join(name));
+
+    for path in &runtime_sources {
+        require_file(path, "dlss runtime", Some(1024))?;
+    }
 
     let license = sdk_dir.join("LICENSE.txt");
     require_file(&license, "dlss sdk license", None)?;
@@ -118,7 +128,10 @@ fn configure_native() -> Result<(), Box<dyn Error>> {
             runtime_dir.display()
         ))
     })?;
-    stage_file(&runtime, &runtime_dir.join(RUNTIME_FILE))?;
+    for (source, name) in runtime_sources.iter().zip(RUNTIME_FILES) {
+        stage_file(source, &runtime_dir.join(name))?;
+    }
+
     stage_file(&license, &runtime_dir.join("nvidia-rtx-sdk-license.txt"))?;
     stage_file(
         &shared_notice,

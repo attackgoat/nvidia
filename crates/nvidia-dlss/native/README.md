@@ -48,3 +48,52 @@ Pinned DLSS 310.4.0 sources inspected:
 - `include/nvsdk_ngx_helpers_dlssd_vk.h`: creation parameters and independent
   `InMVScaleX/Y == 0.0f ? 1.0f : InMVScaleX/Y` conversion before NGX evaluation.
 - `include/nvsdk_ngx_vk.h`: read/write image resources require storage usage.
+
+## Frame Generation (Linux x86-64)
+
+Native builds compile the Frame Generation bindings and stage both DLSS
+libraries from the selected development or release profile. Custom `DLSS_SDK`
+directories must supply the DLSS-G headers and both profiles of the Ray
+Reconstruction and Frame Generation libraries.
+
+To stage both DLSS runtimes for packaging:
+
+```sh
+nvidia-sdk stage dlss --target x86_64-unknown-linux-gnu \
+    --output <runtime-dir>
+```
+
+Both libraries use the same license and third-party notice.
+
+Query `Ngx::frame_generation_instance_extensions` before creating the Vulkan
+instance and `Ngx::frame_generation_device_extensions` (or the `_raw` variant)
+before creating the selected device. Merge the results with RR requirements.
+If FG discovery fails, use the RR extension queries. After NGX initialization,
+query `Evaluator::frame_generation_available` before creating the FG feature.
+
+The fixed-size 2× path uses SDR real color, HUD-less color, premultiplied UI,
+reversed hardware depth, and undilated, unjittered motion. Use guide-pixel
+motion with scale `[1.0, 1.0]`; the guide's positive axes are right and down.
+Supply unjittered row-vector matrices and a clip-space jitter offset. All
+inputs need `SAMPLED` usage and `SHADER_READ_ONLY_OPTIMAL`; the generated
+image needs `STORAGE` and `GENERAL`. The SDK records graphics and compute
+work; record creation and evaluation on a graphics-capable queue and
+synchronize both. The four-byte suppression buffer needs `STORAGE_BUFFER |
+SHADER_DEVICE_ADDRESS` and device-address memory. After GPU completion and
+host-read synchronization, byte zero is zero for a generated midpoint and
+nonzero for a real-frame copy.
+
+After completion of submitted creation and evaluations, discard any
+unsubmitted recordings, then explicitly release the evaluator. The native
+feature has a separate parameter map and shares NGX initialization with RR.
+
+The 310.9.16 release runtime on an RTX 5080 with driver 620.70.06 produced
+the expected X midpoint with `[1.0, 1.0]` scaling, composited semitransparent
+UI over the moving object, and suppressed interpolation on both initial and
+subsequent reset. It released the feature after the last fence and after
+resetting a never-submitted creation recording. The RR and FG features
+coexisted on the same device, and RR's optimal extent query still worked
+after FG release.
+Vulkan validation reported layout errors on SDK-owned images during FG
+draws (`VUID-vkCmdDraw-None-09600`); the same errors were present with the
+application inputs in either `SHADER_READ_ONLY_OPTIMAL` or `GENERAL`.

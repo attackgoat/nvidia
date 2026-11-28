@@ -438,6 +438,7 @@ impl ResolvedSdk {
     }
 
     /// Copies this SDK's selected redistributable runtime set into `output`.
+    /// For DLSS, the set includes Ray Reconstruction and Frame Generation.
     ///
     /// # Errors
     ///
@@ -455,9 +456,6 @@ impl ResolvedSdk {
             .runtime
             .as_deref()
             .context("sdk artifact does not define a redistributable runtime")?;
-        fs::create_dir_all(output)
-            .with_context(|| format!("creating runtime directory {}", output.display()))?;
-
         let mut staged = Vec::new();
 
         for file in runtime.iter().filter(|file| {
@@ -475,23 +473,32 @@ impl ResolvedSdk {
                 "missing runtime file {}",
                 source.display()
             );
+            staged.push(StagedFile {
+                path: destination,
+                source,
+            });
+        }
 
+        fs::create_dir_all(output)
+            .with_context(|| format!("creating runtime directory {}", output.display()))?;
+
+        for StagedFile {
+            path: destination,
+            source,
+        } in &staged
+        {
             if let Some(parent) = destination.parent() {
                 fs::create_dir_all(parent)
                     .with_context(|| format!("creating runtime parent {}", parent.display()))?;
             }
 
-            fs::copy(&source, &destination).with_context(|| {
+            fs::copy(source, destination).with_context(|| {
                 format!(
                     "copying runtime file {} to {}",
                     source.display(),
                     destination.display()
                 )
             })?;
-            staged.push(StagedFile {
-                path: destination,
-                source,
-            });
         }
 
         Ok(staged)
@@ -1127,18 +1134,20 @@ mod tests {
     }
 
     #[test]
-    fn dlss_runtime_profiles_stage_the_pinned_runtime_and_license() {
+    fn dlss_runtime_profiles_stage_the_pinned_runtimes_and_license() {
         let manifest = LockManifest::load().unwrap();
         let entry = &manifest.sdks.dlss;
         let artifact = &entry.artifacts[0];
         let temporary = tempfile::tempdir().unwrap();
         let sdk_root = temporary.path().join("sdk");
 
-        for file in artifact.runtime.as_ref().unwrap() {
-            let source = sdk_root.join(&file.source);
+        for relative in &artifact.required {
+            let source = sdk_root.join(relative);
             fs::create_dir_all(source.parent().unwrap()).unwrap();
-            fs::write(&source, file.source.to_str().unwrap()).unwrap();
+            fs::write(&source, relative.to_str().unwrap()).unwrap();
         }
+
+        artifact.validate(&sdk_root).unwrap();
 
         let resolved = ResolvedSdk::new(
             Sdk::Dlss,
@@ -1159,7 +1168,7 @@ mod tests {
                 "lib/Linux_x86_64/{directory}/libnvidia-ngx-dlssd.so.310.9.16"
             ));
 
-            assert_eq!(staged.len(), 2);
+            assert_eq!(staged.len(), 3);
             assert_eq!(staged[0].source, source);
             assert_eq!(
                 staged[0].path,
@@ -1171,6 +1180,22 @@ mod tests {
             );
             assert_eq!(staged[1].path, output.join("nvidia-rtx-sdk-license.txt"));
             assert_eq!(fs::read_to_string(&staged[1].path).unwrap(), "LICENSE.txt");
+
+            let fg_name = "libnvidia-ngx-dlssg.so.310.9.16";
+            let fg = &staged[2];
+            let fg_source = format!("lib/Linux_x86_64/{directory}/{fg_name}");
+            assert_eq!(fg.path, output.join(fg_name));
+            assert_eq!(fg.source, resolved.path.join(&fg_source));
+            assert_eq!(fs::read_to_string(&fg.path).unwrap(), fg_source);
+
+            fs::remove_file(&fg.source).unwrap();
+            assert!(artifact.validate(&resolved.path).is_err());
+            let missing = temporary
+                .path()
+                .join(format!("{}-missing-fg", profile.name()));
+            assert!(resolved.stage_runtime(&missing, profile).is_err());
+            assert!(!missing.exists());
+            fs::write(&fg.source, fg_source).unwrap();
         }
     }
 

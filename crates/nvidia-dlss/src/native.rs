@@ -2,8 +2,8 @@
 use vk_graph::driver::{device::Device, instance::Instance};
 use {
     crate::{
-        DLSS_RUNTIME_FILE, DlssRrConfig, DlssRrFrameConstants, DlssRrQuality, DlssRrResources,
-        IdentityKind, InitInfo, NativeDlssRrResources, VulkanInitInfo,
+        DLSS_RUNTIME_FILE, DLSSG_RUNTIME_FILE, DlssRrConfig, DlssRrFrameConstants, DlssRrQuality,
+        DlssRrResources, IdentityKind, InitInfo, NativeDlssRrResources, VulkanInitInfo,
     },
     anyhow::Context as _,
     ash::vk::{self, Handle as _},
@@ -21,6 +21,9 @@ use {
 
 const MAX_EXTENSIONS: usize = 32;
 const MAX_EXTENSION_NAME_SIZE: usize = 256;
+
+mod frame_generation;
+pub use frame_generation::DlssFgEvaluator;
 
 static ACTIVE_CONTEXT: AtomicPtr<NativeContext> = AtomicPtr::new(std::ptr::null_mut());
 static API_LOCK: Mutex<()> = Mutex::new(());
@@ -275,6 +278,7 @@ unsafe extern "C" {
         identity: *const NativeIdentity,
         application_data_path: *const c_char,
         runtime_path: *const c_char,
+        frame_generation: bool,
         output: *mut NativeExtensions,
     ) -> i32;
     fn nvidia_dlss_ngx_device_extensions(
@@ -283,6 +287,7 @@ unsafe extern "C" {
         runtime_path: *const c_char,
         instance: *mut c_void,
         physical_device: *mut c_void,
+        frame_generation: bool,
         output: *mut NativeExtensions,
     ) -> i32;
     fn nvidia_dlss_ngx_init(
@@ -341,6 +346,21 @@ impl Ngx {
     /// or NGX extension discovery failure.
     pub fn new(info: InitInfo) -> anyhow::Result<Self> {
         let info = PreparedInfo::new(info)?;
+        let instance_extensions = Self::query_instance_extensions(&info, false)
+            .context("querying ngx instance extensions")?
+            .into_boxed_slice();
+
+        Ok(Self {
+            info,
+            instance_extensions,
+            evaluator: None,
+        })
+    }
+
+    fn query_instance_extensions(
+        info: &PreparedInfo,
+        frame_generation: bool,
+    ) -> anyhow::Result<Vec<CString>> {
         let identity = info.identity();
         let mut output = NativeExtensions::default();
         let _guard = API_LOCK
@@ -352,17 +372,14 @@ impl Ngx {
                 &raw const identity,
                 info.application_data_path.as_ptr(),
                 info.runtime_path.as_ptr(),
+                frame_generation,
                 &raw mut output,
             )
         };
 
-        check_result(result).context("querying ngx instance extensions")?;
+        check_result(result)?;
 
-        Ok(Self {
-            info,
-            instance_extensions: output.extension_names()?.into_boxed_slice(),
-            evaluator: None,
-        })
+        output.extension_names()
     }
 
     #[must_use]
@@ -403,6 +420,16 @@ impl Ngx {
         instance: vk::Instance,
         physical_device: vk::PhysicalDevice,
     ) -> anyhow::Result<Vec<CString>> {
+        unsafe { self.query_device_extensions(instance, physical_device, false) }
+            .context("querying ngx device extensions")
+    }
+
+    unsafe fn query_device_extensions(
+        &self,
+        instance: vk::Instance,
+        physical_device: vk::PhysicalDevice,
+        frame_generation: bool,
+    ) -> anyhow::Result<Vec<CString>> {
         let identity = self.info.identity();
         let mut output = NativeExtensions::default();
         let _guard = API_LOCK
@@ -416,11 +443,12 @@ impl Ngx {
                 self.info.runtime_path.as_ptr(),
                 usize::try_from(instance.as_raw())? as *mut c_void,
                 usize::try_from(physical_device.as_raw())? as *mut c_void,
+                frame_generation,
                 &raw mut output,
             )
         };
 
-        check_result(result).context("querying ngx device extensions")?;
+        check_result(result)?;
 
         output.extension_names()
     }
@@ -579,11 +607,10 @@ impl PreparedInfo {
             )
         })?;
 
-        anyhow::ensure!(
-            info.runtime_path.join(DLSS_RUNTIME_FILE).is_file(),
-            "dlssd runtime is missing {}",
-            info.runtime_path.join(DLSS_RUNTIME_FILE).display()
-        );
+        for file in [DLSS_RUNTIME_FILE, DLSSG_RUNTIME_FILE] {
+            let path = info.runtime_path.join(file);
+            anyhow::ensure!(path.is_file(), "missing dlss runtime {}", path.display());
+        }
 
         let (application_id, project_id, engine_version) = match info.identity.kind {
             IdentityKind::ApplicationId(application_id) => (

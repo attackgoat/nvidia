@@ -38,7 +38,7 @@ has its own platform requirements.
 
 | Integration | Native Support | SDK Inputs |
 | --- | --- | --- |
-| DLSS Ray Reconstruction through Vulkan NGX | x86-64 GNU Linux | Pinned NGX/DLSSD SDK |
+| DLSS Ray Reconstruction and Frame Generation through Vulkan NGX | x86-64 GNU Linux | Pinned DLSS SDK |
 | Streamline | x86-64 MSVC Windows | Pinned Streamline SDK |
 | NRD RELAX SH | x86-64 Linux/Windows; Apple silicon macOS | Pinned source archives and dependencies |
 | OMM CPU baker | x86-64 Linux/Windows; Intel/Apple silicon macOS | Shared libraries on Linux/Windows; pinned sources on macOS |

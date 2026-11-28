@@ -1,4 +1,4 @@
-//! Vulkan DLSS Ray Reconstruction bindings through NGX.
+//! Vulkan DLSS Ray Reconstruction and Frame Generation through NGX.
 //!
 //! Use [`Ngx::native_backend_available`] to check whether the native backend was built
 //! and [`Ngx::staged_runtime_dir`] to locate its staged runtime before creating a context.
@@ -9,6 +9,7 @@ use {
 };
 
 pub const DLSS_RUNTIME_FILE: &str = "libnvidia-ngx-dlssd.so.310.9.16";
+pub const DLSSG_RUNTIME_FILE: &str = "libnvidia-ngx-dlssg.so.310.9.16";
 pub const SDK_VERSION: &str = "310.9.16";
 
 /// Color encoding fixed for the lifetime of an initialized evaluator.
@@ -280,6 +281,7 @@ enum IdentityKind {
 pub struct InitInfo {
     pub identity: Identity,
     pub application_data_path: PathBuf,
+    /// Directory containing both the Ray Reconstruction and Frame Generation libraries.
     pub runtime_path: PathBuf,
 }
 
@@ -474,13 +476,17 @@ pub struct VulkanInitInfo {
     pub get_device_proc_addr: vk::PFN_vkGetDeviceProcAddr,
 }
 
+mod frame_generation;
 #[cfg(nvidia_dlss_native)]
 mod native;
 #[cfg(not(nvidia_dlss_native))]
 mod stub;
 
+#[cfg(not(nvidia_dlss_native))]
+pub use frame_generation::DlssFgEvaluator;
+pub use frame_generation::{DlssFgConfig, DlssFgResources};
 #[cfg(nvidia_dlss_native)]
-pub use native::{Evaluator, Ngx};
+pub use native::{DlssFgEvaluator, Evaluator, Ngx};
 #[cfg(not(nvidia_dlss_native))]
 pub use stub::{Evaluator, Ngx};
 
@@ -505,7 +511,11 @@ mod tests {
         );
 
         #[cfg(nvidia_dlss_native)]
-        assert!(runtime_dir.unwrap().join(DLSS_RUNTIME_FILE).is_file());
+        {
+            let runtime_dir = runtime_dir.unwrap();
+            assert!(runtime_dir.join(DLSS_RUNTIME_FILE).is_file());
+            assert!(runtime_dir.join(DLSSG_RUNTIME_FILE).is_file());
+        }
     }
 
     #[test]
